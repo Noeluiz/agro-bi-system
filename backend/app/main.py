@@ -34,7 +34,9 @@ app = FastAPI(
     description="API para Sistema de Gestão Agrícola e Business Intelligence",
     version="1.0.0"
 )
-
+@app.get("/")
+def root():
+    return {"message": "API está funcionando!"}
 # ---------------------------------------------------------------------
 # Rate Limiting (proteção contra brute force / DoS)
 # ---------------------------------------------------------------------
