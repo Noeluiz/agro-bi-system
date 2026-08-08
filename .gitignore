@@ -1,0 +1,358 @@
+# =====================================================================
+# 🔒 AGRO-BI SYSTEM - GIT IGNORE RULES (SECURITY-FOCUSED)
+# =====================================================================
+# Este arquivo previne que arquivos sensíveis sejam versionados no Git
+# Última atualização: 2026-08-07
+# =====================================================================
+
+# =====================================================================
+# 🔐 ENVIRONMENT & SECRETS - CRÍTICO
+# =====================================================================
+# Variáveis de ambiente (NUNCA versionem)
+.env
+.env.local
+.env.*.local
+.env.*.prod
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Excepção: Permitir apenas arquivo de exemplo
+!.env.example
+!.env.example.local
+
+# =====================================================================
+# 🔒 CREDENCIAIS & CHAVES PRIVADAS
+# =====================================================================
+# Certificados TLS/SSL
+*.pem
+*.key
+*.p12
+*.pfx
+*.cert
+*.crt
+*.cer
+*.jks
+*.keystore
+*.pks12
+
+# Diretórios de credenciais
+secrets/
+credentials/
+.aws/
+.gcp/
+.azure/
+.ssh/
+
+# Arquivos de configuração sensível
+config/secrets.yml
+config/secrets.json
+secrets.yml
+secrets.json
+
+# =====================================================================
+# 🐍 PYTHON - FULL COVERAGE
+# =====================================================================
+# Bytecode e cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+.venv
+.virtualenv/
+
+# Python installation
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+.tox/
+.nox/
+.hypothesis/
+
+# Code quality
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+
+# IDE Python-specific
+.pytype/
+
+# =====================================================================
+# 📦 NODE/FRONTEND - FULL COVERAGE
+# =====================================================================
+# Dependencies (NEVER version node_modules)
+node_modules/
+npm-debug.log*
+npm-error.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+pnpm-error.log*
+lerna-debug.log*
+
+# Lock files (choose one strategy per project)
+yarn.lock
+package-lock.json
+pnpm-lock.yaml
+
+# Build output
+dist/
+dist-ssr/
+.next/
+out/
+build/
+.nuxt/
+.cache/
+.vuepress/dist
+.serverless/
+.fusebox/
+.dynamodb/
+.tern-port
+.vuepress/dist
+
+# IDE Node-specific
+.nuxt/
+
+# =====================================================================
+# 📝 LOGS - ALL TYPES
+# =====================================================================
+*.log
+*.log.*
+logs/
+logs/**/*
+!logs/.gitkeep
+npm-debug.log
+yarn-debug.log
+
+# =====================================================================
+# 💻 IDE & EDITORS - COMPREHENSIVE
+# =====================================================================
+# Visual Studio Code
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.template
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+
+# JetBrains (IntelliJ, WebStorm, PyCharm, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+.gradle
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Eclipse
+.project
+.pydevproject
+.settings/
+bin/
+.classpath
+
+# Vim
+*.swp
+*.swo
+*~
+.*.swo
+.*.swp
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Icon?
+
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+ehthumbs.db
+*.lnk
+*.cab
+
+# =====================================================================
+# 🐳 DOCKER - SAFE CONFIGURATIONS
+# =====================================================================
+# Override files (local development)
+docker-compose.override.yml
+docker-compose.local.yml
+docker-compose.dev.yml
+docker-compose.prod.yml
+
+# Dockerignore local
+.dockerignore.local
+
+# Docker build cache
+.docker/
+
+# =====================================================================
+# 📊 TEST & COVERAGE
+# =====================================================================
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+.hypothesis/
+*.cover
+.pytest_cache/
+coverage.xml
+.coverage[0-9]*
+report.html
+
+# =====================================================================
+# 🌐 TEMPORARY & OS
+# =====================================================================
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+.tmp/
+tmp/
+temp/
+tempfiles/
+
+# Backup files
+*.backup
+*.bkp
+*~
+*.~
+
+# =====================================================================
+# ⚙️ SYSTEM & MISC FILES
+# =====================================================================
+# OS-specific
+.DS_Store
+.DS_Store?
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Python wheel distribution
+*.whl
+
+# Source distributions
+*.tar.gz
+*.tar.bz2
+*.zip
+
+# =====================================================================
+# 📋 BUILD ARTIFACTS & DEPENDENCIES
+# =====================================================================
+# Python packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Node packaging
+.npm
+.eslintcache
+
+# =====================================================================
+# 🚀 CI/CD - Local Test Artifacts
+# =====================================================================
+.github/workflows/build-output/
+.circleci/cache/
+.travis/cache/
+
+# =====================================================================
+# 🌐 DEVELOPMENT - Local Override Files
+# =====================================================================
+# Local environment overrides
+.env.development
+.env.staging
+.env.production
+config.local.json
+settings.local.py
+
+# =====================================================================
+# 📱 MOBILE & PLATFORM-SPECIFIC
+# =====================================================================
+.gradle
+.gradle/
+local.properties
+
+# =====================================================================
+# 🎨 DESIGN & MEDIA (Opcional - Ajuste conforme necessário)
+# =====================================================================
+# Se o projeto não versiona assets (opcional)
+# *.psd
+# *.ai
+# *.sketch
+
+# =====================================================================
+# 🔗 GIT-SPECIFIC
+# =====================================================================
+.git/
+.gitattributes
+
+# =====================================================================
+# NOTA: ARQUIVOS QUE DEVEM SER VERSIONADOS
+# =====================================================================
+# ✅ .gitignore (este arquivo)
+# ✅ .gitattributes
+# ✅ .env.example (com placeholders)
+# ✅ .dockerignore
+# ✅ docker-compose.yml (sem secrets - usa variáveis)
+# ✅ Dockerfile (seguro)
+# ✅ package.json, package-lock.json (opcional - lock file)
+# ✅ pyproject.toml, requirements.txt
+# ✅ Código-fonte (.py, .js, .jsx, .ts, .tsx)
+# ✅ Configurações públicas (.prettierrc, .eslintrc, etc.)
+# ✅ Documentação (README.md, CONTRIBUTING.md)
+# ✅ Testes (test/, __tests__/)
