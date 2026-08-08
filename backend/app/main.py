@@ -65,7 +65,7 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 # ---------------------------------------------------------------------
 # Origens permitidas via variável de ambiente CORS_ORIGINS (separadas por vírgula).
 # Em produção, defina CORS_ORIGINS com as origens reais do frontend.
-_cors_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+_cors_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,https://agro-bi-system-production.up.railway.app")
 cors_origins = [o.strip() for o in _cors_origins_str.split(",") if o.strip()]
 
 app.add_middleware(
@@ -89,13 +89,13 @@ async def security_headers(request: Request, call_next):
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; "
-        "script-src 'self'; "
-        "style-src 'self' 'unsafe-inline'; "
-        "img-src 'self' data:; "
-        "connect-src 'self'"
-    )
+   # response.headers["Content-Security-Policy"] = (
+      #  "default-src 'self'; "
+       # "script-src 'self'; "
+        #"style-src 'self' 'unsafe-inline'; "
+       # "img-src 'self' data:; "
+        #"connect-src 'self'"
+   # )
     # HSTS apenas em produção (HTTPS)
     if os.getenv("ENABLE_HSTS", "false").lower() == "true":
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
