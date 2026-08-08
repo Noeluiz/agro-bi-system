@@ -5,7 +5,7 @@
     "context": "backend"
   },
   "deploy": {
-    "healthcheckPath": "/",
+    "healthcheckPath": "/docs",
     "limits": {
       "cpu": "2",
       "memory": "1GB"
