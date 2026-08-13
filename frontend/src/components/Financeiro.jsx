@@ -5,6 +5,25 @@ import { apiFetch } from '../auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+// Categorias financeiras pré-definidas - TRAVA #3 CORRIGIDA
+const CATEGORIAS_FINANCEIRAS = [
+  'Vendas de Grãos',
+  'Vendas de Insumos',
+  'Vendas de Serviços',
+  'Combustível',
+  'Manutenção de Equipamentos',
+  'Salários',
+  'Compra de Insumos',
+  'Juros',
+  'Impostos',
+  'Energia Elétrica',
+  'Água e Saneamento',
+  'Aluguel',
+  'Transporte',
+  'Consultorias',
+  'Outros',
+];
+
 export default function Financeiro() {
   const [lancamentos, setLancamentos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -134,12 +153,12 @@ export default function Financeiro() {
 
   return (
     <div className="space-y-4">
-      {/* Header com botão de adicionar */}
-      <div className="flex justify-between items-center">
+      {/* Header com botão */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h2 className="text-2xl font-bold text-emerald-800">Financeiro</h2>
         <button
           onClick={() => setModalAberto(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition"
+          className="flex items-center gap-2 px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition w-full md:w-auto justify-center"
         >
           <Plus className="w-5 h-5" />
           Adicionar Lançamento
@@ -157,7 +176,7 @@ export default function Financeiro() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal - passa lista de categorias pré-definidas */}
       <CadastroModal
         isOpen={modalAberto}
         onClose={() => setModalAberto(false)}

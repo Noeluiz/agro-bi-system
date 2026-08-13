@@ -51,6 +51,15 @@ export default function Alertas() {
     }
   };
 
+  // TRAVA #1 CORRIGIDA: Validar se há produtos antes de abrir modal
+  const handleAbrirModalAlerta = () => {
+    if (produtos.length === 0) {
+      setError('⚠️ Nenhum produto disponível. Crie um produto primeiro antes de adicionar alertas.');
+      return;
+    }
+    setModalAberto(true);
+  };
+
   const handleNovoAlerta = (novoAlerta) => {
     setAlertas(prev => [novoAlerta, ...prev]);
     carregarDados();
@@ -143,8 +152,10 @@ export default function Alertas() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h2 className="text-2xl font-bold text-emerald-800">Alertas de Estoque</h2>
         <button
-          onClick={() => setModalAberto(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition w-full md:w-auto justify-center"
+          onClick={handleAbrirModalAlerta}
+          className="flex items-center gap-2 px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition w-full md:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={produtos.length === 0}
+          title={produtos.length === 0 ? 'Crie um produto primeiro' : 'Adicionar novo alerta'}
         >
           <Plus className="w-5 h-5" />
           Novo Alerta
@@ -156,7 +167,7 @@ export default function Alertas() {
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
           <div>
-            <p className="text-red-700 font-medium">Erro</p>
+            <p className="text-red-700 font-medium">Aviso</p>
             <p className="text-red-600 text-sm">{error}</p>
           </div>
         </div>

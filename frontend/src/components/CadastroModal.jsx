@@ -4,9 +4,29 @@ import { apiFetch } from '../auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+// Categorias financeiras pré-definidas - TRAVA #3
+const CATEGORIAS_FINANCEIRAS = [
+  'Vendas de Grãos',
+  'Vendas de Insumos',
+  'Vendas de Serviços',
+  'Combustível',
+  'Manutenção de Equipamentos',
+  'Salários',
+  'Compra de Insumos',
+  'Juros',
+  'Impostos',
+  'Energia Elétrica',
+  'Água e Saneamento',
+  'Aluguel',
+  'Transporte',
+  'Consultorias',
+  'Outros',
+];
+
 /**
- * CadastroModal.jsx
- * Modal reutilizável para cadastro de produtos, categorias, fornecedores, funcionários, fluxo de caixa e alertas.
+ * CadastroModal.jsx - COM ABAS
+ * Modal reutilizável com abas para cadastro de Produtos, Categorias e Fornecedores.
+ * Atualização inteligente de listas sem recarregar a página.
  * 
  * Props:
  * - isOpen: boolean para controlar visibilidade
@@ -16,6 +36,8 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
  * - fornecedores: array de fornecedores (para produto)
  * - produtos: array de produtos (para alerta)
  * - onSuccess: callback após sucesso na API
+ * - onCategoriesUpdated: callback quando novas categorias são adicionadas
+ * - onFornecedoresUpdated: callback quando novos fornecedores são adicionados
  */
 export default function CadastroModal({
   isOpen,
@@ -25,17 +47,43 @@ export default function CadastroModal({
   fornecedores = [],
   produtos = [],
   onSuccess = () => { },
+  onCategoriesUpdated = () => { },
+  onFornecedoresUpdated = () => { },
 }) {
+  // Estado para abas (apenas quando tipo === 'produto')
+  const [activeTab, setActiveTab] = useState('produto');
   const [formData, setFormData] = useState({});
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [localCategorias, setLocalCategorias] = useState(categorias);
+  const [localFornecedores, setLocalFornecedores] = useState(fornecedores);
+
+  // Quando as props de categorias ou fornecedores mudam, atualiza localmente
+  useEffect(() => {
+    setLocalCategorias(categorias);
+  }, [categorias]);
+
+  useEffect(() => {
+    setLocalFornecedores(fornecedores);
+  }, [fornecedores]);
 
   useEffect(() => {
     if (isOpen) {
-      setFormData(getDefaultValues(tipo));
+      // Se é modal de produto, inicia com aba de produto
+      if (tipo === 'produto') {
+        setActiveTab('produto');
+      }
+      setFormData(getDefaultValues(tipo === 'produto' ? activeTab : tipo));
       setError('');
     }
   }, [isOpen, tipo]);
+
+  // Muda aba e reseta form
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setFormData(getDefaultValues(tab));
+    setError('');
+  };
 
   const getDefaultValues = (tipoForm) => {
     const defaults = {
@@ -83,10 +131,16 @@ export default function CadastroModal({
   };
 
   const getTitle = () => {
+    if (tipo === 'produto') {
+      const titles = {
+        produto: 'Adicionar Produto',
+        categoria: 'Adicionar Categoria',
+        fornecedor: 'Adicionar Fornecedor',
+      };
+      return titles[activeTab] || 'Cadastro';
+    }
+
     const titles = {
-      produto: 'Adicionar Produto',
-      categoria: 'Adicionar Categoria',
-      fornecedor: 'Adicionar Fornecedor',
       fluxo: 'Adicionar Lançamento de Caixa',
       funcionario: 'Adicionar Funcionário',
       alerta: 'Adicionar Alerta de Estoque',
@@ -95,6 +149,7 @@ export default function CadastroModal({
   };
 
   const getEndpoint = () => {
+    const currentTipo = tipo === 'produto' ? activeTab : tipo;
     const endpoints = {
       produto: '/api/produtos',
       categoria: '/api/categorias',
@@ -103,16 +158,18 @@ export default function CadastroModal({
       funcionario: '/api/funcionarios',
       alerta: '/api/alertas-estoque',
     };
-    return endpoints[tipo] || '';
+    return endpoints[currentTipo] || '';
   };
 
   const validateForm = () => {
-    if (!formData.nome && tipo !== 'fluxo' && tipo !== 'alerta') {
+    const currentTipo = tipo === 'produto' ? activeTab : tipo;
+
+    if (!formData.nome && currentTipo !== 'fluxo' && currentTipo !== 'alerta') {
       setError('Nome é obrigatório');
       return false;
     }
 
-    if (tipo === 'produto') {
+    if (currentTipo === 'produto') {
       if (!formData.categoria_id) {
         setError('Categoria é obrigatória');
         return false;
@@ -127,7 +184,7 @@ export default function CadastroModal({
       }
     }
 
-    if (tipo === 'fluxo') {
+    if (currentTipo === 'fluxo') {
       if (!formData.categoria_financeira || formData.categoria_financeira.trim() === '') {
         setError('Categoria financeira é obrigatória');
         return false;
@@ -138,7 +195,7 @@ export default function CadastroModal({
       }
     }
 
-    if (tipo === 'funcionario') {
+    if (currentTipo === 'funcionario') {
       if (!formData.cargo || formData.cargo.trim() === '') {
         setError('Cargo é obrigatório');
         return false;
@@ -149,7 +206,7 @@ export default function CadastroModal({
       }
     }
 
-    if (tipo === 'alerta') {
+    if (currentTipo === 'alerta') {
       if (!formData.produto_id) {
         setError('Produto é obrigatório');
         return false;
@@ -184,13 +241,14 @@ export default function CadastroModal({
 
     try {
       const dataToSend = { ...formData };
+      const currentTipo = tipo === 'produto' ? activeTab : tipo;
 
-      if (tipo === 'produto') {
+      if (currentTipo === 'produto') {
         dataToSend.categoria_id = parseInt(dataToSend.categoria_id, 10);
         dataToSend.fornecedor_id = parseInt(dataToSend.fornecedor_id, 10);
       }
 
-      if (tipo === 'alerta') {
+      if (currentTipo === 'alerta') {
         dataToSend.produto_id = parseInt(dataToSend.produto_id, 10);
       }
 
@@ -204,21 +262,45 @@ export default function CadastroModal({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || `Erro ao salvar ${tipo}`);
+        throw new Error(errorData.detail || `Erro ao salvar ${currentTipo}`);
       }
 
       const result = await response.json();
+
+      // Atualização inteligente de listas locais
+      if (currentTipo === 'categoria') {
+        setLocalCategorias(prev => [...prev, result]);
+        onCategoriesUpdated([...localCategorias, result]);
+      } else if (currentTipo === 'fornecedor') {
+        setLocalFornecedores(prev => [...prev, result]);
+        onFornecedoresUpdated([...localFornecedores, result]);
+      }
+
       onSuccess(result);
-      onClose();
-      setFormData(getDefaultValues(tipo));
+
+      // Se é modal de produto com abas, reseta formulário mas mantém modal aberto
+      if (tipo === 'produto') {
+        setFormData(getDefaultValues(currentTipo));
+        // Mostra mensagem de sucesso por um breve momento
+        setTimeout(() => {
+          setFormData(getDefaultValues(currentTipo));
+        }, 1000);
+      } else {
+        // Outros tipos fecham o modal
+        onClose();
+        setFormData(getDefaultValues(currentTipo));
+      }
     } catch (err) {
-      setError(err.message || `Erro ao salvar ${tipo}`);
+      setError(err.message || `Erro ao salvar`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   if (!isOpen) return null;
+
+  // Determina qual tipo realmente usar
+  const currentTipo = tipo === 'produto' ? activeTab : tipo;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -235,6 +317,27 @@ export default function CadastroModal({
           </button>
         </div>
 
+        {/* ABAS - Mostrar apenas para modal de Produto */}
+        {tipo === 'produto' && (
+          <div className="flex gap-0 border-b border-slate-200 bg-stone-50 px-6">
+            {['produto', 'categoria', 'fornecedor'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => handleTabChange(tab)}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition ${
+                  activeTab === tab
+                    ? 'text-emerald-700 border-emerald-700'
+                    : 'text-slate-600 border-transparent hover:text-emerald-700'
+                }`}
+              >
+                {tab === 'produto' && 'Produto'}
+                {tab === 'categoria' && 'Categoria'}
+                {tab === 'fornecedor' && 'Fornecedor'}
+              </button>
+            ))}
+          </div>
+        )}
+
         {error && (
           <div className="m-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
@@ -244,7 +347,7 @@ export default function CadastroModal({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* PRODUTO */}
-          {tipo === 'produto' && (
+          {currentTipo === 'produto' && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -270,7 +373,7 @@ export default function CadastroModal({
                     disabled={isSubmitting}
                   >
                     <option value="">Selecione uma categoria</option>
-                    {categorias.map(cat => (
+                    {localCategorias.map(cat => (
                       <option key={cat.id} value={cat.id}>
                         {cat.nome}
                       </option>
@@ -288,7 +391,7 @@ export default function CadastroModal({
                     disabled={isSubmitting}
                   >
                     <option value="">Selecione um fornecedor</option>
-                    {fornecedores.map(forn => (
+                    {localFornecedores.map(forn => (
                       <option key={forn.id} value={forn.id}>
                         {forn.nome}
                       </option>
@@ -370,7 +473,7 @@ export default function CadastroModal({
           )}
 
           {/* CATEGORIA */}
-          {tipo === 'categoria' && (
+          {currentTipo === 'categoria' && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Nome da Categoria *</label>
               <input
@@ -386,7 +489,7 @@ export default function CadastroModal({
           )}
 
           {/* FORNECEDOR */}
-          {tipo === 'fornecedor' && (
+          {currentTipo === 'fornecedor' && (
             <>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Nome do Fornecedor *</label>
@@ -445,7 +548,7 @@ export default function CadastroModal({
           )}
 
           {/* FLUXO DE CAIXA */}
-          {tipo === 'fluxo' && (
+          {currentTipo === 'fluxo' && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -478,15 +581,20 @@ export default function CadastroModal({
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Categoria Financeira *</label>
-                  <input
-                    type="text"
+                  <select
                     name="categoria_financeira"
                     value={formData.categoria_financeira || ''}
                     onChange={handleChange}
-                    placeholder="Ex: Vendas de Grãos, Combustíveis"
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-700"
                     disabled={isSubmitting}
-                  />
+                  >
+                    <option value="">Selecione uma categoria</option>
+                    {CATEGORIAS_FINANCEIRAS.map(cat => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -518,7 +626,7 @@ export default function CadastroModal({
           )}
 
           {/* FUNCIONÁRIO */}
-          {tipo === 'funcionario' && (
+          {currentTipo === 'funcionario' && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -590,7 +698,7 @@ export default function CadastroModal({
           )}
 
           {/* ALERTA DE ESTOQUE */}
-          {tipo === 'alerta' && (
+          {currentTipo === 'alerta' && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>

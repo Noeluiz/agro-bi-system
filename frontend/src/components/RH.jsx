@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, AlertCircle } from 'lucide-react';
 import CadastroModal from './CadastroModal';
 import { apiFetch } from '../auth';
 
@@ -173,13 +173,8 @@ export default function RH() {
                         {func.ativo ? 'Ativo' : 'Inativo'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm flex gap-2">
-                      <button
-                        className="p-2 rounded-lg text-slate-600 hover:bg-stone-100 transition"
-                        title="Editar"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
+                    {/* TRAVA #2 CORRIGIDA: Remover botão de editar não funcional */}
+                    <td className="px-6 py-4 text-sm">
                       <button
                         onClick={() => handleDeletar(func.id)}
                         disabled={deletando === func.id}
