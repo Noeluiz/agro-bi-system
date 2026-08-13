@@ -6,17 +6,16 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 /**
  * CadastroModal.jsx
- * Modal reutilizável para cadastro de produtos, categorias, fornecedores, funcionários e fluxo de caixa.
+ * Modal reutilizável para cadastro de produtos, categorias, fornecedores, funcionários, fluxo de caixa e alertas.
  * 
  * Props:
  * - isOpen: boolean para controlar visibilidade
  * - onClose: callback ao fechar
- * - onSave: callback ao salvar (recebe os dados do formulário)
- * - tipo: 'produto' | 'categoria' | 'fornecedor' | 'fluxo' | 'funcionario'
- * - categorias: array de categorias (para filtro em produto)
- * - fornecedores: array de fornecedores (para filtro em produto)
+ * - tipo: 'produto' | 'categoria' | 'fornecedor' | 'fluxo' | 'funcionario' | 'alerta'
+ * - categorias: array de categorias (para produto)
+ * - fornecedores: array de fornecedores (para produto)
+ * - produtos: array de produtos (para alerta)
  * - onSuccess: callback após sucesso na API
- * - loading: boolean para mostrar estado de carregamento
  */
 export default function CadastroModal({
   isOpen,
@@ -24,14 +23,13 @@ export default function CadastroModal({
   tipo = 'produto',
   categorias = [],
   fornecedores = [],
+  produtos = [],
   onSuccess = () => { },
-  loading = false,
 }) {
   const [formData, setFormData] = useState({});
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Reset form quando abre/fecha modal
   useEffect(() => {
     if (isOpen) {
       setFormData(getDefaultValues(tipo));
@@ -39,9 +37,6 @@ export default function CadastroModal({
     }
   }, [isOpen, tipo]);
 
-  /**
-   * Retorna valores padrão baseado no tipo
-   */
   const getDefaultValues = (tipoForm) => {
     const defaults = {
       produto: {
@@ -77,14 +72,16 @@ export default function CadastroModal({
         salario_base: 0,
         data_admissao: new Date().toISOString().split('T')[0],
       },
+      alerta: {
+        produto_id: '',
+        tipo_alerta: 'Baixo Estoque',
+        mensagem: '',
+      },
     };
 
     return defaults[tipoForm] || {};
   };
 
-  /**
-   * Retorna rótulo do modal baseado no tipo
-   */
   const getTitle = () => {
     const titles = {
       produto: 'Adicionar Produto',
@@ -92,13 +89,11 @@ export default function CadastroModal({
       fornecedor: 'Adicionar Fornecedor',
       fluxo: 'Adicionar Lançamento de Caixa',
       funcionario: 'Adicionar Funcionário',
+      alerta: 'Adicionar Alerta de Estoque',
     };
     return titles[tipo] || 'Cadastro';
   };
 
-  /**
-   * Retorna o endpoint da API baseado no tipo
-   */
   const getEndpoint = () => {
     const endpoints = {
       produto: '/api/produtos',
@@ -106,15 +101,13 @@ export default function CadastroModal({
       fornecedor: '/api/fornecedores',
       fluxo: '/api/fluxo-caixa',
       funcionario: '/api/funcionarios',
+      alerta: '/api/alertas-estoque',
     };
     return endpoints[tipo] || '';
   };
 
-  /**
-   * Validação do formulário
-   */
   const validateForm = () => {
-    if (!formData.nome && tipo !== 'fluxo') {
+    if (!formData.nome && tipo !== 'fluxo' && tipo !== 'alerta') {
       setError('Nome é obrigatório');
       return false;
     }
@@ -156,12 +149,20 @@ export default function CadastroModal({
       }
     }
 
+    if (tipo === 'alerta') {
+      if (!formData.produto_id) {
+        setError('Produto é obrigatório');
+        return false;
+      }
+      if (!formData.mensagem || formData.mensagem.trim() === '') {
+        setError('Mensagem é obrigatória');
+        return false;
+      }
+    }
+
     return true;
   };
 
-  /**
-   * Handler de mudança no formulário
-   */
   const handleChange = (e) => {
     const { name, value, type } = e.target;
     setFormData(prev => ({
@@ -171,9 +172,6 @@ export default function CadastroModal({
     setError('');
   };
 
-  /**
-   * Handler de submit
-   */
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -185,14 +183,15 @@ export default function CadastroModal({
     setError('');
 
     try {
-      // Converte categoria_id e fornecedor_id para número se necessário
-      const dataToSend = {
-        ...formData,
-      };
+      const dataToSend = { ...formData };
 
       if (tipo === 'produto') {
         dataToSend.categoria_id = parseInt(dataToSend.categoria_id, 10);
         dataToSend.fornecedor_id = parseInt(dataToSend.fornecedor_id, 10);
+      }
+
+      if (tipo === 'alerta') {
+        dataToSend.produto_id = parseInt(dataToSend.produto_id, 10);
       }
 
       const response = await apiFetch(`${API_URL}${getEndpoint()}`, {
@@ -224,7 +223,6 @@ export default function CadastroModal({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
         <div className="sticky top-0 bg-white flex justify-between items-center p-6 border-b border-slate-200">
           <h2 className="text-2xl font-bold text-emerald-800">{getTitle()}</h2>
           <button
@@ -237,7 +235,6 @@ export default function CadastroModal({
           </button>
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="m-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
@@ -245,7 +242,6 @@ export default function CadastroModal({
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* PRODUTO */}
           {tipo === 'produto' && (
@@ -589,6 +585,61 @@ export default function CadastroModal({
                     disabled={isSubmitting}
                   />
                 </div>
+              </div>
+            </>
+          )}
+
+          {/* ALERTA DE ESTOQUE */}
+          {tipo === 'alerta' && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Produto *</label>
+                  <select
+                    name="produto_id"
+                    value={formData.produto_id || ''}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-700"
+                    disabled={isSubmitting}
+                  >
+                    <option value="">Selecione um produto</option>
+                    {produtos.map(prod => (
+                      <option key={prod.id} value={prod.id}>
+                        {prod.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Tipo de Alerta</label>
+                  <select
+                    name="tipo_alerta"
+                    value={formData.tipo_alerta || 'Baixo Estoque'}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-700"
+                    disabled={isSubmitting}
+                  >
+                    <option value="Crítico">Crítico</option>
+                    <option value="Baixo Estoque">Baixo Estoque</option>
+                    <option value="Aviso">Aviso</option>
+                    <option value="Manutenção">Manutenção</option>
+                    <option value="Reposição">Reposição</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Mensagem *</label>
+                <textarea
+                  name="mensagem"
+                  value={formData.mensagem || ''}
+                  onChange={handleChange}
+                  placeholder="Descrição do alerta..."
+                  rows="3"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-700 resize-none"
+                  disabled={isSubmitting}
+                />
               </div>
             </>
           )}
