@@ -37,13 +37,7 @@ app = FastAPI(
 @app.get("/")
 def root():
     return {"message": "API está funcionando!"}
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
 # =
 # ---------------------------------------------------------------------
 # Rate Limiting (proteção contra brute force / DoS)
