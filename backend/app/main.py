@@ -76,13 +76,13 @@ app.add_middleware(
 # ---------------------------------------------------------------------
 # Security Headers (CSP, HSTS, X-Content-Type-Options, etc.)
 # ---------------------------------------------------------------------
-@app.middleware("http")
-async def security_headers(request: Request, call_next):
-    response = await call_next(request)
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["Referrer-Policy"] = "no-referrer"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+#@app.middleware("http")
+#async def security_headers(request: Request, call_next):
+ #   response = await call_next(request)
+ #   response.headers["X-Content-Type-Options"] = "nosniff"
+ #   response.headers["Referrer-Policy"] = "no-referrer"
+ #   response.headers["X-Frame-Options"] = "DENY"
+ #   response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
    # response.headers["Content-Security-Policy"] = (
       #  "default-src 'self'; "
        # "script-src 'self'; "
@@ -91,9 +91,9 @@ async def security_headers(request: Request, call_next):
         #"connect-src 'self'"
    # )
     # HSTS apenas em produção (HTTPS)
-    if os.getenv("ENABLE_HSTS", "false").lower() == "true":
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    return response
+ #   if os.getenv("ENABLE_HSTS", "false").lower() == "true":
+  #      response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+   # return response
 
 
 # Initialize database on startup
