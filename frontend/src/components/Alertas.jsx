@@ -87,6 +87,39 @@ export default function Alertas() {
     }
   };
 
+  const handleExportar = () => {
+    if (alertas.length === 0) {
+      setError('Nenhum alerta para exportar');
+      return;
+    }
+
+    try {
+      const headers = ['Produto', 'Tipo', 'Mensagem', 'Status'];
+      const rows = alertas.map(a => [
+        a.produto?.nome || 'N/A',
+        a.tipo_alerta || 'Geral',
+        a.mensagem,
+        a.resolvido ? 'Resolvido' : 'Pendente'
+      ]);
+
+      const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `alertas_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      setError('Erro ao exportar: ' + err.message);
+      console.error('Erro ao exportar:', err);
+    }
+  };
+
   const handleDeletarAlerta = async (id) => {
     if (!window.confirm('Tem certeza que deseja deletar este alerta?')) {
       return;

@@ -83,6 +83,40 @@ export default function Financeiro() {
     carregarLancamentos();
   };
 
+  const handleExportar = () => {
+    if (lancamentos.length === 0) {
+      setError('Nenhum lançamento para exportar');
+      return;
+    }
+
+    try {
+      const headers = ['Data', 'Tipo', 'Categoria', 'Valor', 'Descrição'];
+      const rows = lancamentos.map(l => [
+        new Date(l.data).toLocaleDateString('pt-BR'),
+        l.tipo,
+        l.categoria_financeira || 'N/A',
+        l.valor,
+        l.descricao || ''
+      ]);
+
+      const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `financeiro_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      setError('Erro ao exportar: ' + err.message);
+      console.error('Erro ao exportar:', err);
+    }
+  };
+
   const handleDeletar = async (id) => {
     if (!window.confirm('Tem certeza que deseja deletar este lançamento?')) {
       return;
