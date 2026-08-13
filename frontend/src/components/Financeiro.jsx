@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, AlertCircle, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, Trash2, AlertCircle, TrendingUp, TrendingDown, Download } from 'lucide-react';
 import CadastroModal from './CadastroModal';
 import { apiFetch } from '../auth';
 
@@ -156,13 +156,22 @@ export default function Financeiro() {
       {/* Header com botão */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h2 className="text-2xl font-bold text-emerald-800">Financeiro</h2>
-        <button
-          onClick={() => setModalAberto(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition w-full md:w-auto justify-center"
-        >
-          <Plus className="w-5 h-5" />
-          Adicionar Lançamento
-        </button>
+        <div className="flex gap-2 w-full md:w-auto">
+          <button
+            onClick={() => setModalAberto(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition flex-1 md:flex-none justify-center"
+          >
+            <Plus className="w-5 h-5" />
+            Adicionar Lançamento
+          </button>
+          <button
+            onClick={handleExportar}
+            className="px-4 py-2 border border-emerald-700 text-emerald-700 rounded-lg hover:bg-emerald-50 transition flex-1 md:flex-none flex items-center gap-2 justify-center"
+          >
+            <Download className="w-5 h-5" />
+            Exportar CSV
+          </button>
+        </div>
       </div>
 
       {/* Error Message */}

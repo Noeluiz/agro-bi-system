@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, AlertCircle, CheckCircle, AlertTriangle, Trash2 } from 'lucide-react';
+import { Plus, AlertCircle, CheckCircle, AlertTriangle, Trash2, Download } from 'lucide-react';
 import CadastroModal from './CadastroModal';
 import { apiFetch } from '../auth';
 
@@ -151,15 +151,24 @@ export default function Alertas() {
       {/* Header com botão */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h2 className="text-2xl font-bold text-emerald-800">Alertas de Estoque</h2>
-        <button
-          onClick={handleAbrirModalAlerta}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition w-full md:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={produtos.length === 0}
-          title={produtos.length === 0 ? 'Crie um produto primeiro' : 'Adicionar novo alerta'}
-        >
-          <Plus className="w-5 h-5" />
-          Novo Alerta
-        </button>
+        <div className="flex gap-2 w-full md:w-auto">
+          <button
+            onClick={handleAbrirModalAlerta}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition flex-1 md:flex-none justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={produtos.length === 0}
+            title={produtos.length === 0 ? 'Crie um produto primeiro' : 'Adicionar novo alerta'}
+          >
+            <Plus className="w-5 h-5" />
+            Novo Alerta
+          </button>
+          <button
+            onClick={handleExportar}
+            className="px-4 py-2 border border-emerald-700 text-emerald-700 rounded-lg hover:bg-emerald-50 transition flex-1 md:flex-none flex items-center gap-2 justify-center"
+          >
+            <Download className="w-5 h-5" />
+            Exportar CSV
+          </button>
+        </div>
       </div>
 
       {/* Error Message */}

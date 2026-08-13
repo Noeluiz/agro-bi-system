@@ -20,19 +20,11 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const [metricas, setMetricas] = useState(null);
-  const [categorias, setCategorias] = useState([]);
-  const [fornecedores, setFornecedores] = useState([]);
   const [faturamentoData, setFaturamentoData] = useState([]);
   const [investimentoData, setInvestimentoData] = useState([]);
   const [fluxoCaixaData, setFluxoCaixaData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // Filters
-  const [filtroCategoria, setFiltroCategoria] = useState(null);
-  const [filtroFornecedor, setFiltroFornecedor] = useState(null);
-  const [dataInicio, setDataInicio] = useState(null);
-  const [dataFim, setDataFim] = useState(null);
 
   const isAdmin = role === 'ADMIN';
 
@@ -47,29 +39,16 @@ function App() {
       setLoading(true);
       setError(null);
 
-      // Carregar categorias
-      const catRes = await apiFetch(`${API_URL}/api/categorias`);
-      if (catRes.ok) setCategorias(await catRes.json());
-
-      // Carregar fornecedores
-      const fornRes = await apiFetch(`${API_URL}/api/fornecedores`);
-      if (fornRes.ok) setFornecedores(await fornRes.json());
-
-      // Carregar dados financeiros apenas para ADMIN
       if (isAdmin) {
-        // Carregar métricas
         const metRes = await apiFetch(`${API_URL}/api/bi/metricas`);
         if (metRes.ok) setMetricas(await metRes.json());
 
-        // Carregar faturamento por categoria
         const fatRes = await apiFetch(`${API_URL}/api/bi/faturamento-por-categoria`);
         if (fatRes.ok) setFaturamentoData(await fatRes.json());
 
-        // Carregar investimento em estoque
         const invRes = await apiFetch(`${API_URL}/api/bi/investimento-estoque`);
         if (invRes.ok) setInvestimentoData(await invRes.json());
 
-        // Carregar fluxo de caixa
         const fluxRes = await apiFetch(`${API_URL}/api/bi/grafico-fluxo-caixa?meses=6`);
         if (fluxRes.ok) setFluxoCaixaData(await fluxRes.json());
       }
@@ -125,17 +104,6 @@ function App() {
     <div className="flex h-screen bg-stone-50">
       {/* Sidebar: fixa no desktop, drawer no mobile */}
       <Sidebar
-        categorias={categorias}
-        fornecedores={fornecedores}
-        filtroCategoria={filtroCategoria}
-        filtroFornecedor={filtroFornecedor}
-        setFiltroCategoria={setFiltroCategoria}
-        setFiltroFornecedor={setFiltroFornecedor}
-        dataInicio={dataInicio}
-        dataFim={dataFim}
-        setDataInicio={setDataInicio}
-        setDataFim={setDataFim}
-        onExportar={() => {}}
         role={role}
         userName={userName}
         onLogout={handleLogout}
