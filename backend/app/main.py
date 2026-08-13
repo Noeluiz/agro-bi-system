@@ -475,6 +475,55 @@ async def criar_alerta_estoque(
         db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao criar alerta de estoque")
 
+@app.patch("/api/alertas-estoque/{alerta_id}", response_model=schemas.AlertaEstoqueResponse)
+async def resolver_alerta_estoque(
+    alerta_id: int,
+    alerta_update: schemas.AlertaEstoqueUpdate,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_user)
+):
+    """Resolve a stock alert (mark as resolved). (Acesso ADMIN e GERENTE)"""
+    try:
+        db_alerta = db.query(AlertaEstoque).filter(AlertaEstoque.id == alerta_id).first()
+        if not db_alerta:
+            raise HTTPException(status_code=404, detail="Alerta não encontrado")
+        
+        # Atualizar campos fornecidos
+        if alerta_update.resolvido is not None:
+            db_alerta.resolvido = alerta_update.resolvido
+        
+        db.commit()
+        db.refresh(db_alerta)
+        return db_alerta
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao resolver alerta de estoque: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Erro ao resolver alerta de estoque")
+
+@app.delete("/api/alertas-estoque/{alerta_id}")
+async def deletar_alerta_estoque(
+    alerta_id: int,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_user)
+):
+    """Delete a stock alert. (Acesso ADMIN e GERENTE)"""
+    try:
+        db_alerta = db.query(AlertaEstoque).filter(AlertaEstoque.id == alerta_id).first()
+        if not db_alerta:
+            raise HTTPException(status_code=404, detail="Alerta não encontrado")
+        
+        db.delete(db_alerta)
+        db.commit()
+        return {"detail": "Alerta deletado com sucesso"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao deletar alerta de estoque: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Erro ao deletar alerta de estoque")
+
 # ============= BUSINESS INTELLIGENCE METRICS =============
 
 @app.get("/api/bi/metricas", response_model=schemas.MetricasBI)

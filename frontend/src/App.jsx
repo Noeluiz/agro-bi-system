@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { BarChart, Bar, PieChart, Pie, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-import { AlertCircle, Package, TrendingUp, DollarSign, Users, Menu } from 'lucide-react';
+import { AlertCircle, Users, Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
-import MetricCard from './components/MetricCard';
+import Dashboard from './components/Dashboard';
 import Login from './components/Login';
 import RH from './components/RH';
 import Financeiro from './components/Financeiro';
@@ -16,50 +15,16 @@ function App() {
   const [autenticado, setAutenticado] = useState(isAuthenticated());
   const [role, setRole] = useState(getRole());
   const [userName, setUserName] = useState(getUserName());
-  const [activeSection, setActiveSection] = useState('estoque');
+  const [activeSection, setActiveSection] = useState('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const [metricas, setMetricas] = useState(null);
-  const [faturamentoData, setFaturamentoData] = useState([]);
-  const [investimentoData, setInvestimentoData] = useState([]);
-  const [fluxoCaixaData, setFluxoCaixaData] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  const isAdmin = role === 'ADMIN';
 
   useEffect(() => {
     if (autenticado) {
-      carregarDadosAdmin();
+      setLoading(false);
     }
   }, [autenticado]);
-
-  const carregarDadosAdmin = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      if (isAdmin) {
-        const metRes = await apiFetch(`${API_URL}/api/bi/metricas`);
-        if (metRes.ok) setMetricas(await metRes.json());
-
-        const fatRes = await apiFetch(`${API_URL}/api/bi/faturamento-por-categoria`);
-        if (fatRes.ok) setFaturamentoData(await fatRes.json());
-
-        const invRes = await apiFetch(`${API_URL}/api/bi/investimento-estoque`);
-        if (invRes.ok) setInvestimentoData(await invRes.json());
-
-        const fluxRes = await apiFetch(`${API_URL}/api/bi/grafico-fluxo-caixa?meses=6`);
-        if (fluxRes.ok) setFluxoCaixaData(await fluxRes.json());
-      }
-
-      setLoading(false);
-    } catch (err) {
-      setError('Erro ao carregar dados: ' + err.message);
-      setLoading(false);
-      console.error(err);
-    }
-  };
 
   const handleLogin = (dados) => {
     setAutenticado(true);
@@ -72,10 +37,6 @@ function App() {
     setAutenticado(false);
     setRole('GERENTE');
     setUserName('');
-    setMetricas(null);
-    setFaturamentoData([]);
-    setInvestimentoData([]);
-    setFluxoCaixaData([]);
     setMobileMenuOpen(false);
   };
 
@@ -137,22 +98,22 @@ function App() {
                 <Menu className="w-5 h-5" />
               </button>
               <div className="min-w-0">
-                <h1 className="text-xl md:text-3xl font-bold text-emerald-800 truncate">Agro-BI Dashboard</h1>
-                <p className="text-slate-600 mt-1 text-xs md:text-sm">Gestão Agrícola e Business Intelligence</p>
+                <h1 className="text-xl md:text-3xl font-bold text-emerald-800 truncate">Agro-BI System</h1>
+                <p className="text-slate-600 mt-1 text-xs md:text-sm">Gestão Agrícola Inteligente</p>
               </div>
             </div>
-            <button
-              onClick={carregarDadosAdmin}
-              className="px-3 md:px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition text-sm shrink-0"
-            >
-              Atualizar
-            </button>
           </div>
         </div>
 
         {/* Renderização condicional por seção */}
         {(() => {
           switch (activeSection) {
+            case 'dashboard':
+              return (
+                <div className="p-4 md:p-6">
+                  <Dashboard />
+                </div>
+              );
             case 'estoque':
               return (
                 <div className="p-4 md:p-6">
@@ -166,7 +127,7 @@ function App() {
                 </div>
               );
             case 'financeiro':
-              return isAdmin ? (
+              return role === 'ADMIN' ? (
                 <div className="p-4 md:p-6">
                   <Financeiro />
                 </div>
@@ -178,7 +139,7 @@ function App() {
                 </div>
               );
             case 'rh':
-              return isAdmin ? (
+              return role === 'ADMIN' ? (
                 <div className="p-4 md:p-6">
                   <RH />
                 </div>
@@ -191,129 +152,9 @@ function App() {
               );
             default:
               return (
-                <>
-                  {/* Dashboard - Apenas ADMIN */}
-                  {isAdmin && (
-                    <>
-                      {/* Metrics Cards */}
-                      {metricas && (
-                        <div className="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                          <MetricCard
-                            icon={<DollarSign className="w-6 h-6" />}
-                            title="Faturamento Estimado"
-                            value={`R$ ${Number(metricas?.faturamento_estimado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                            color="emerald"
-                          />
-                          <MetricCard
-                            icon={<TrendingUp className="w-6 h-6" />}
-                            title="Lucro Estimado"
-                            value={`R$ ${Number(metricas?.lucro_estimado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                            color="emerald"
-                          />
-                          <MetricCard
-                            icon={<Package className="w-6 h-6" />}
-                            title="Margem de Lucro Média"
-                            value={`${Number(metricas?.margem_lucro_media || 0).toFixed(2)}%`}
-                            color="amber"
-                          />
-                          <MetricCard
-                            icon={<Users className="w-6 h-6" />}
-                            title="Custo por Hectare"
-                            value={`R$ ${Number(metricas?.custo_por_hectare || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                            color="emerald"
-                          />
-                        </div>
-                      )}
-
-                      {/* Charts */}
-                      <div className="p-4 md:p-6 flex flex-col lg:flex-row gap-6">
-                        {/* Faturamento por Categoria */}
-                        <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-                          <h3 className="text-lg font-semibold text-slate-800 mb-4">Distribuição de Faturamento</h3>
-                          {faturamentoData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height={300}>
-                              <PieChart>
-                                <Pie
-                                  data={faturamentoData.map(d => ({
-                                    name: d.categoria,
-                                    value: parseFloat(d.valor)
-                                  }))}
-                                  cx="50%"
-                                  cy="50%"
-                                  labelLine={false}
-                                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                  outerRadius={100}
-                                  fill="#047857"
-                                  dataKey="value"
-                                >
-                                  {faturamentoData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={['#047857', '#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0'][index % 6]} />
-                                  ))}
-                                </Pie>
-                                <Tooltip formatter={(value) => `R$ ${value.toLocaleString('pt-BR')}`} />
-                              </PieChart>
-                            </ResponsiveContainer>
-                          ) : (
-                            <p className="text-slate-500 text-center py-8">Sem dados disponíveis</p>
-                          )}
-                        </div>
-
-                        {/* Investimento em Estoque */}
-                        <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-                          <h3 className="text-lg font-semibold text-slate-800 mb-4">Investimento Acumulado em Estoque</h3>
-                          {investimentoData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height={300}>
-                              <BarChart data={investimentoData.map(d => ({
-                                name: d.categoria,
-                                value: parseFloat(d.valor_total)
-                              }))}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                                <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
-                                <YAxis />
-                                <Tooltip formatter={(value) => `R$ ${value.toLocaleString('pt-BR')}`} />
-                                <Bar dataKey="value" fill="#047857" />
-                              </BarChart>
-                            </ResponsiveContainer>
-                          ) : (
-                            <p className="text-slate-500 text-center py-8">Sem dados disponíveis</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Fluxo de Caixa Chart */}
-                      {fluxoCaixaData && fluxoCaixaData.labels && fluxoCaixaData.labels.length > 0 && (
-                        <div className="p-4 md:p-6">
-                          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-                            <h3 className="text-lg font-semibold text-slate-800 mb-4">Fluxo de Caixa (6 Últimos Meses)</h3>
-                            <ResponsiveContainer width="100%" height={300}>
-                              <LineChart data={fluxoCaixaData.labels.map((label, i) => ({
-                                mes: label,
-                                saldo: Number(fluxoCaixaData.valores[i] || 0)
-                              }))}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                                <XAxis dataKey="mes" />
-                                <YAxis />
-                                <Tooltip formatter={(value) => `R$ ${value.toLocaleString('pt-BR')}`} />
-                                <Legend />
-                                <Line type="monotone" dataKey="saldo" stroke="#047857" strokeWidth={2} dot={{ fill: '#047857', r: 4 }} />
-                              </LineChart>
-                            </ResponsiveContainer>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {/* Para GERENTE - mensagem bem-vindo */}
-                  {!isAdmin && (
-                    <div className="p-4 md:p-6">
-                      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                        <h2 className="text-2xl font-bold text-emerald-800 mb-2">Bem-vindo ao Agro-BI!</h2>
-                        <p className="text-slate-600">Navegue pelos menus para gerenciar Estoque, Alertas e outras funções.</p>
-                      </div>
-                    </div>
-                  )}
-                </>
+                <div className="p-4 md:p-6">
+                  <Dashboard />
+                </div>
               );
           }
         })()}

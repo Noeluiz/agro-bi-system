@@ -13,6 +13,7 @@ export default function Sidebar({
   const isAdmin = role === 'ADMIN';
 
   const navItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, show: true },
     { id: 'estoque', label: 'Estoque', icon: Package, show: true },
     { id: 'alertas', label: 'Alertas', icon: Bell, show: true },
     { id: 'financeiro', label: 'Financeiro', icon: Wallet, show: isAdmin },

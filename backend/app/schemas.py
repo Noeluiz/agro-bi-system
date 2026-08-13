@@ -165,6 +165,11 @@ class AlertaEstoqueResponse(AlertaEstoqueBase):
     class Config:
         from_attributes = True
 
+class AlertaEstoqueUpdate(BaseModel):
+    resolvido: Optional[bool] = None
+    mensagem: Optional[str] = None
+    tipo_alerta: Optional[str] = None
+
 # BI Dashboard Schemas
 class MetricasBI(BaseModel):
     faturamento_estimado: float
