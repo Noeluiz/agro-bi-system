@@ -6,6 +6,8 @@ import MetricCard from './components/MetricCard';
 import ProductTable from './components/ProductTable';
 import AlertsTable from './components/AlertsTable';
 import Login from './components/Login';
+import RH from './components/RH';
+import Financeiro from './components/Financeiro';
 import { getToken, getRole, getUserName, isAuthenticated, logout, apiFetch } from './auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -230,20 +232,26 @@ function App() {
         {(() => {
           switch (activeSection) {
             case 'financeiro':
-              return (
+              return isAdmin ? (
+                <div className="p-4 md:p-6">
+                  <Financeiro />
+                </div>
+              ) : (
                 <div className="p-4 md:p-6">
                   <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                    <h3 className="text-lg font-semibold text-slate-800 mb-4">Financeiro</h3>
-                    <p className="text-slate-600">Módulo financeiro em construção.</p>
+                    <p className="text-red-700 font-medium">Acesso negado. Apenas administradores podem acessar este módulo.</p>
                   </div>
                 </div>
               );
             case 'rh':
-              return (
+              return isAdmin ? (
+                <div className="p-4 md:p-6">
+                  <RH />
+                </div>
+              ) : (
                 <div className="p-4 md:p-6">
                   <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                    <h3 className="text-lg font-semibold text-slate-800 mb-4">Recursos Humanos</h3>
-                    <p className="text-slate-600">Módulo de RH em construção.</p>
+                    <p className="text-red-700 font-medium">Acesso negado. Apenas administradores podem acessar este módulo.</p>
                   </div>
                 </div>
               );
