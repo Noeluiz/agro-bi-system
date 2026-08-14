@@ -364,6 +364,28 @@ async def criar_funcionario(
         db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao criar funcionario")
 
+@app.delete("/api/funcionarios/{funcionario_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def deletar_funcionario(
+    funcionario_id: int,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(require_admin)
+):
+    """Delete an employee. (ADMIN only)"""
+    try:
+        db_funcionario = db.query(Funcionario).filter(Funcionario.id == funcionario_id).first()
+        if not db_funcionario:
+            raise HTTPException(status_code=404, detail="Funcionário não encontrado")
+        
+        db.delete(db_funcionario)
+        db.commit()
+        return None
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao deletar funcionário: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Erro ao deletar funcionário")
+    
 # ============= FLUXO DE CAIXA (Financeiro - somente ADMIN) =============
 @app.get("/api/fluxo-caixa", response_model=List[schemas.FluxoCaixaResponse])
 async def listar_fluxo_caixa(
