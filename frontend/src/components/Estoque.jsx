@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, AlertCircle, Edit2, Trash2 } from 'lucide-react';
+import { Plus, AlertCircle, Edit2, Search } from 'lucide-react';
 import CadastroModal from './CadastroModal';
 import ProductTable from './ProductTable';
 import { apiFetch } from '../auth';
@@ -18,6 +18,16 @@ export default function Estoque() {
   const [novoEstoque, setNovoEstoque] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState(null);
   const [filtroFornecedor, setFiltroFornecedor] = useState(null);
+  const [buscaProduto, setBuscaProduto] = useState('');
+
+  const normalizarTexto = (texto) => String(texto || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR');
+
+  const produtosVisiveis = produtos.filter((produto) =>
+    normalizarTexto(produto.nome).includes(normalizarTexto(buscaProduto))
+  );
 
   useEffect(() => {
     carregarDados();
@@ -120,13 +130,13 @@ export default function Estoque() {
   };
 
   const handleExportar = () => {
-    if (produtos.length === 0) {
+    if (produtosVisiveis.length === 0) {
       alert('Nenhum produto para exportar');
       return;
     }
 
     const headers = ['ID', 'Nome', 'Categoria', 'Fornecedor', 'Estoque Atual', 'Estoque Mínimo', 'Preço Custo', 'Preço Venda', 'Unidade'];
-    const rows = produtos.map(p => [
+    const rows = produtosVisiveis.map(p => [
       p.id,
       p.nome,
       p.categoria?.nome || '',
@@ -261,7 +271,21 @@ export default function Estoque() {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-4">
         <h3 className="text-sm font-semibold text-slate-700">Filtros</h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Pesquisar por nome</label>
+            <div className="relative">
+              <Search className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
+              <input
+                type="search"
+                value={buscaProduto}
+                onChange={(e) => setBuscaProduto(e.target.value)}
+                placeholder="Ex: semente de soja"
+                className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-700 text-sm"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">Categoria</label>
             <select
@@ -295,9 +319,10 @@ export default function Estoque() {
           </div>
         </div>
 
-        {(filtroCategoria || filtroFornecedor) && (
+        {(buscaProduto || filtroCategoria || filtroFornecedor) && (
           <button
             onClick={() => {
+              setBuscaProduto('');
               setFiltroCategoria(null);
               setFiltroFornecedor(null);
             }}
@@ -324,14 +349,14 @@ export default function Estoque() {
               </tr>
             </thead>
             <tbody>
-              {produtos.length === 0 ? (
+              {produtosVisiveis.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="px-6 py-8 text-center text-slate-500">
-                    Nenhum produto encontrado
+                    {buscaProduto ? 'Nenhum produto encontrado para esta pesquisa' : 'Nenhum produto encontrado'}
                   </td>
                 </tr>
               ) : (
-                produtos.map((produto, idx) => (
+                produtosVisiveis.map((produto, idx) => (
                   <tr key={produto.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-stone-50'}>
                     <td className="px-6 py-4 text-sm font-medium text-slate-800">{produto.nome}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{produto.categoria?.nome || '-'}</td>
@@ -356,11 +381,11 @@ export default function Estoque() {
         </div>
 
         {/* Footer com resumo */}
-        {produtos.length > 0 && (
+        {produtosVisiveis.length > 0 && (
           <div className="px-6 py-3 bg-stone-50 border-t border-slate-200 text-sm text-slate-600">
-            Total: <span className="font-semibold text-slate-800">{produtos.length}</span> produto(s)
+            Total exibido: <span className="font-semibold text-slate-800">{produtosVisiveis.length}</span> produto(s)
             | Em falta: <span className="font-semibold text-red-700">
-              {produtos.filter(p => parseFloat(p.estoque_atual) <= parseFloat(p.estoque_minimo)).length}
+              {produtosVisiveis.filter(p => parseFloat(p.estoque_atual) <= parseFloat(p.estoque_minimo)).length}
             </span>
           </div>
         )}

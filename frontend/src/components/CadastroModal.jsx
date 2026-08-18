@@ -23,6 +23,14 @@ const CATEGORIAS_FINANCEIRAS = [
   'Outros',
 ];
 
+const CATEGORIAS_AGRICOLAS_SUGERIDAS = [
+  'Adubos',
+  'Defensivos',
+  'Sementes',
+  'Peças',
+  'Combustíveis',
+];
+
 /**
  * CadastroModal.jsx - COM ABAS
  * Modal reutilizável com abas para cadastro de Produtos, Categorias e Fornecedores.
@@ -57,6 +65,11 @@ export default function CadastroModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localCategorias, setLocalCategorias] = useState(categorias);
   const [localFornecedores, setLocalFornecedores] = useState(fornecedores);
+  const sugestoesCategoriasPendentes = CATEGORIAS_AGRICOLAS_SUGERIDAS.filter(
+    (sugestao) => !localCategorias.some(
+      (categoria) => categoria.nome.toLocaleLowerCase('pt-BR') === sugestao.toLocaleLowerCase('pt-BR')
+    )
+  );
 
   // Quando as props de categorias ou fornecedores mudam, atualiza localmente
   useEffect(() => {
@@ -379,6 +392,9 @@ export default function CadastroModal({
                       </option>
                     ))}
                   </select>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Sugestões disponíveis: Adubos, Defensivos, Sementes, Peças e Combustíveis.
+                  </p>
                 </div>
 
                 <div>
@@ -485,6 +501,30 @@ export default function CadastroModal({
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-700"
                 disabled={isSubmitting}
               />
+              <div className="mt-4">
+                <p className="text-sm font-medium text-slate-700 mb-2">Sugestões para o mercado agrícola</p>
+                {sugestoesCategoriasPendentes.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {sugestoesCategoriasPendentes.map((categoria) => (
+                    <button
+                      key={categoria}
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, nome: categoria }))}
+                      disabled={isSubmitting}
+                      className={`px-3 py-1.5 rounded-full border text-sm transition ${
+                        formData.nome === categoria
+                          ? 'bg-emerald-700 border-emerald-700 text-white'
+                          : 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100'
+                      } disabled:opacity-50`}
+                    >
+                      {categoria}
+                    </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">Todas as categorias agrícolas sugeridas já estão disponíveis.</p>
+                )}
+              </div>
             </div>
           )}
 

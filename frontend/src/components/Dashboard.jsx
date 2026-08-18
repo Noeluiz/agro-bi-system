@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, AlertCircle, Users, Package } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { apiFetch } from '../auth';
 
@@ -311,6 +312,9 @@ export default function Dashboard() {
       {/* Footer */}
       <div className="text-center text-sm text-slate-500 py-4">
         <p>Último carregamento: {new Date().toLocaleTimeString('pt-BR')}</p>
+        <Link to="/privacidade" className="inline-block mt-2 text-emerald-700 hover:text-emerald-800 underline underline-offset-2">
+          Política de Privacidade
+        </Link>
       </div>
     </div>
   );

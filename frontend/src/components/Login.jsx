@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Lock, Mail, LogIn, Sprout, Eye, EyeOff } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { saveSession } from '../auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -122,6 +123,13 @@ export default function Login({ onLogin }) {
               )}
               {loading ? 'Entrando...' : 'Entrar'}
             </button>
+
+            <p className="text-center text-xs text-slate-500">
+              Ao acessar, você concorda com nossa{' '}
+              <Link to="/privacidade" className="text-emerald-700 hover:text-emerald-800 underline underline-offset-2">
+                Política de Privacidade
+              </Link>.
+            </p>
           </form>
         </div>
       </div>

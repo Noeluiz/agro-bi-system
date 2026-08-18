@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { AlertCircle, Users, Menu } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { AlertCircle, Menu } from 'lucide-react';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Login from './components/Login';
@@ -7,54 +8,47 @@ import RH from './components/RH';
 import Financeiro from './components/Financeiro';
 import Estoque from './components/Estoque';
 import Alertas from './components/Alertas';
-import { getToken, getRole, getUserName, isAuthenticated, logout, apiFetch } from './auth';
+import NotFound from './components/NotFound';
+import Privacidade from './components/Privacidade';
+import { getRole, getUserName, isAuthenticated, logout } from './auth';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
-function App() {
-  const [autenticado, setAutenticado] = useState(isAuthenticated());
-  const [role, setRole] = useState(getRole());
-  const [userName, setUserName] = useState(getUserName());
+function Sistema({ role, userName, onLogout }) {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error] = useState(null);
 
   useEffect(() => {
-    if (autenticado) {
-      setLoading(false);
-    }
-  }, [autenticado]);
-
-  const handleLogin = (dados) => {
-    setAutenticado(true);
-    setRole(dados.role);
-    setUserName(dados.nome);
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    setAutenticado(false);
-    setRole('GERENTE');
-    setUserName('');
-    setMobileMenuOpen(false);
-  };
+    setLoading(false);
+  }, []);
 
   const handleNavigate = (section) => {
     setActiveSection(section);
     setMobileMenuOpen(false);
   };
 
-  // Se não autenticado, exibe a tela de login
-  if (!autenticado) {
-    return <Login onLogin={handleLogin} />;
-  }
+  const renderSection = () => {
+    switch (activeSection) {
+      case 'dashboard':
+        return <Dashboard />;
+      case 'estoque':
+        return <Estoque />;
+      case 'alertas':
+        return <Alertas />;
+      case 'financeiro':
+        return role === 'ADMIN' ? <Financeiro /> : <AcessoNegado />;
+      case 'rh':
+        return role === 'ADMIN' ? <RH /> : <AcessoNegado />;
+      default:
+        return <Dashboard />;
+    }
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-stone-50">
         <div className="text-center px-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-700 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-700 mx-auto mb-4" />
           <p className="text-slate-600">Carregando sistema...</p>
         </div>
       </div>
@@ -63,19 +57,17 @@ function App() {
 
   return (
     <div className="flex h-screen bg-stone-50">
-      {/* Sidebar: fixa no desktop, drawer no mobile */}
       <Sidebar
         role={role}
         userName={userName}
-        onLogout={handleLogout}
+        onLogout={onLogout}
         activeSection={activeSection}
         onNavigate={handleNavigate}
         mobileOpen={mobileMenuOpen}
         onCloseMenu={() => setMobileMenuOpen(false)}
       />
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg m-4">
             <div className="flex items-center">
@@ -85,11 +77,9 @@ function App() {
           </div>
         )}
 
-        {/* Dashboard Header - responsivo */}
         <div className="p-4 md:p-6 bg-white border-b border-slate-200">
           <div className="flex justify-between items-center gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              {/* Botão hambúrguer no mobile */}
               <button
                 onClick={() => setMobileMenuOpen(true)}
                 className="md:hidden p-2 rounded-lg text-slate-600 hover:bg-stone-100 transition border border-slate-200"
@@ -105,61 +95,52 @@ function App() {
           </div>
         </div>
 
-        {/* Renderização condicional por seção */}
-        {(() => {
-          switch (activeSection) {
-            case 'dashboard':
-              return (
-                <div className="p-4 md:p-6">
-                  <Dashboard />
-                </div>
-              );
-            case 'estoque':
-              return (
-                <div className="p-4 md:p-6">
-                  <Estoque />
-                </div>
-              );
-            case 'alertas':
-              return (
-                <div className="p-4 md:p-6">
-                  <Alertas />
-                </div>
-              );
-            case 'financeiro':
-              return role === 'ADMIN' ? (
-                <div className="p-4 md:p-6">
-                  <Financeiro />
-                </div>
-              ) : (
-                <div className="p-4 md:p-6">
-                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                    <p className="text-red-700 font-medium">Acesso negado. Apenas administradores podem acessar este módulo.</p>
-                  </div>
-                </div>
-              );
-            case 'rh':
-              return role === 'ADMIN' ? (
-                <div className="p-4 md:p-6">
-                  <RH />
-                </div>
-              ) : (
-                <div className="p-4 md:p-6">
-                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                    <p className="text-red-700 font-medium">Acesso negado. Apenas administradores podem acessar este módulo.</p>
-                  </div>
-                </div>
-              );
-            default:
-              return (
-                <div className="p-4 md:p-6">
-                  <Dashboard />
-                </div>
-              );
-          }
-        })()}
-      </div>
+        <div className="p-4 md:p-6">{renderSection()}</div>
+      </main>
     </div>
+  );
+}
+
+function AcessoNegado() {
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+      <p className="text-red-700 font-medium">Acesso negado. Apenas administradores podem acessar este módulo.</p>
+    </div>
+  );
+}
+
+function App() {
+  const [autenticado, setAutenticado] = useState(isAuthenticated());
+  const [role, setRole] = useState(getRole());
+  const [userName, setUserName] = useState(getUserName());
+
+  const handleLogin = (dados) => {
+    setAutenticado(true);
+    setRole(dados.role);
+    setUserName(dados.nome);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    setAutenticado(false);
+    setRole('GERENTE');
+    setUserName('');
+  };
+
+  return (
+    <Routes>
+      <Route path="/" element={<Navigate to={autenticado ? '/dashboard' : '/login'} replace />} />
+      <Route
+        path="/login"
+        element={autenticado ? <Navigate to="/dashboard" replace /> : <Login onLogin={handleLogin} />}
+      />
+      <Route path="/privacidade" element={<Privacidade />} />
+      <Route
+        path="/dashboard"
+        element={autenticado ? <Sistema role={role} userName={userName} onLogout={handleLogout} /> : <Navigate to="/login" replace />}
+      />
+      <Route path="*" element={<NotFound autenticado={autenticado} />} />
+    </Routes>
   );
 }
 

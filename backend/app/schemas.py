@@ -84,6 +84,19 @@ class ProdutoResponse(ProdutoBase):
     class Config:
         from_attributes = True
 
+
+class ProdutoUpdate(BaseModel):
+    """Campos que podem ser alterados parcialmente em um produto."""
+    nome: Optional[str] = None
+    categoria_id: Optional[int] = None
+    fornecedor_id: Optional[int] = None
+    estoque_atual: Optional[Decimal] = None
+    estoque_minimo: Optional[Decimal] = None
+    preco_custo: Optional[Decimal] = None
+    preco_venda: Optional[Decimal] = None
+    unidade_medida: Optional[str] = None
+
+
 class ProdutoComAlertaResponse(ProdutoResponse):
     alerta: Optional[str] = None
 
@@ -102,6 +115,16 @@ class FuncionarioResponse(FuncionarioBase):
     
     class Config:
         from_attributes = True
+
+
+class FuncionarioUpdate(BaseModel):
+    """Campos que podem ser alterados em um funcionário."""
+    nome: Optional[str] = None
+    cpf: Optional[str] = None
+    cargo: Optional[str] = None
+    salario_base: Optional[Decimal] = None
+    data_admissao: Optional[date] = None
+    ativo: Optional[bool] = None
 
 # FolhaPagamento Schemas
 class FolhaPagamentoBase(BaseModel):

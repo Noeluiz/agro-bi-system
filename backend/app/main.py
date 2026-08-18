@@ -29,6 +29,14 @@ from app import schemas
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+CATEGORIAS_AGRICOLAS_PADRAO = (
+    "Adubos",
+    "Defensivos",
+    "Sementes",
+    "Peças",
+    "Combustíveis",
+)
+
 app = FastAPI(
     title="Agro-BI API",
     description="API para Sistema de Gestão Agrícola e Business Intelligence",
@@ -57,8 +65,7 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 # ---------------------------------------------------------------------
 # CORS restrito (sem wildcard com credentials)
 # ---------------------------------------------------------------------
-# Origens permitidas via variável de ambiente CORS_ORIGINS (separadas por vírgula).
-# Em produção, defina CORS_ORIGINS com as origens reais do frontend.
+# Origens permitidas mantidas explicitamente no código. CORS_ORIGINS não é lida.
 
 origins = [
     "http://localhost:5173",
@@ -105,12 +112,30 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup():
     init_db()
+    criar_categorias_iniciais()
     criar_usuarios_iniciais()
     logger.info("Database initialized")
 
 
+def criar_categorias_iniciais():
+    """Garante as categorias agrícolas sugeridas, sem alterar categorias existentes."""
+    db = next(get_db())
+    try:
+        for nome in CATEGORIAS_AGRICOLAS_PADRAO:
+            existente = db.query(Categoria).filter(Categoria.nome == nome).first()
+            if not existente:
+                db.add(Categoria(nome=nome))
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Erro ao criar categorias iniciais: {e}")
+    finally:
+        db.close()
+
+
 def criar_usuarios_iniciais():
     """Cria os usuários iniciais de teste (admin e gerente) se não existirem."""
+    # TODO(security): desabilitar esta semeadura de credenciais conhecidas em produção.
     db = next(get_db())
     try:
         usuarios_seed = [
@@ -332,6 +357,46 @@ async def criar_produto(
         db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao criar produto")
 
+
+@app.patch("/api/produtos/{produto_id}", response_model=schemas.ProdutoResponse)
+async def atualizar_produto(
+    produto_id: int,
+    produto_update: schemas.ProdutoUpdate,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_user)
+):
+    """Atualiza parcialmente os dados de um produto. (Acesso ADMIN e GERENTE)"""
+    try:
+        db_produto = db.query(Produto).filter(Produto.id == produto_id).first()
+        if not db_produto:
+            raise HTTPException(status_code=404, detail="Produto não encontrado")
+
+        dados_atualizacao = produto_update.model_dump(exclude_unset=True)
+        if not dados_atualizacao:
+            raise HTTPException(status_code=422, detail="Informe ao menos um campo para atualização")
+
+        if "categoria_id" in dados_atualizacao and not db.query(Categoria).filter(
+            Categoria.id == dados_atualizacao["categoria_id"]
+        ).first():
+            raise HTTPException(status_code=404, detail="Categoria não encontrada")
+        if "fornecedor_id" in dados_atualizacao and not db.query(Fornecedor).filter(
+            Fornecedor.id == dados_atualizacao["fornecedor_id"]
+        ).first():
+            raise HTTPException(status_code=404, detail="Fornecedor não encontrado")
+
+        for campo, valor in dados_atualizacao.items():
+            setattr(db_produto, campo, valor)
+
+        db.commit()
+        db.refresh(db_produto)
+        return db_produto
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao atualizar produto: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Erro ao atualizar produto")
+
 # ============= FUNCIONARIOS (RH - somente ADMIN) =============
 @app.get("/api/funcionarios", response_model=List[schemas.FuncionarioResponse])
 async def listar_funcionarios(
@@ -363,6 +428,37 @@ async def criar_funcionario(
         logger.error(f"Erro ao criar funcionario: {e}")
         db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao criar funcionario")
+
+
+@app.put("/api/funcionarios/{funcionario_id}", response_model=schemas.FuncionarioResponse)
+async def atualizar_funcionario(
+    funcionario_id: int,
+    funcionario_update: schemas.FuncionarioUpdate,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(require_admin)
+):
+    """Atualiza os dados de um funcionário. (ADMIN only)"""
+    try:
+        db_funcionario = db.query(Funcionario).filter(Funcionario.id == funcionario_id).first()
+        if not db_funcionario:
+            raise HTTPException(status_code=404, detail="Funcionário não encontrado")
+
+        dados_atualizacao = funcionario_update.model_dump(exclude_unset=True)
+        if not dados_atualizacao:
+            raise HTTPException(status_code=422, detail="Informe ao menos um campo para atualização")
+
+        for campo, valor in dados_atualizacao.items():
+            setattr(db_funcionario, campo, valor)
+
+        db.commit()
+        db.refresh(db_funcionario)
+        return db_funcionario
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao atualizar funcionário: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Erro ao atualizar funcionário")
 
 @app.delete("/api/funcionarios/{funcionario_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def deletar_funcionario(
