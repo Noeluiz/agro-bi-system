@@ -17,6 +17,7 @@ O banco é PostgreSQL, usado pelo backend via SQLAlchemy e `pg8000`. O backend �
 - Senhas usam bcrypt via Passlib.
 - `slowapi` limita o login a 5 requisições/minuto e o healthcheck a 20/minuto.
 - `DATABASE_URL` e `SECRET_KEY` são obrigatórias; o serviço falha ao iniciar sem elas.
+- O seed de usuários de teste só é executado quando `ENVIRONMENT` não é `production`; em produção, configure `ENVIRONMENT=production`.
 - Há os papéis `ADMIN` e `GERENTE`. RH, fluxo de caixa e métricas BI administrativas exigem `ADMIN`.
 
 ### CORS e headers
@@ -25,9 +26,9 @@ O CORS é uma lista fixa e explícita no código em `backend/app/main.py`; a var
 
 O middleware `security_headers` permanece comentado intencionalmente para evitar impacto no Swagger durante o MVP. Portanto, ele não adiciona CSP, HSTS, `X-Frame-Options` ou demais headers em execução. Antes de ativá-lo, a política deve ser validada no Swagger e no frontend em produção.
 
-### TODO de segurança
+### Auditoria e retenção
 
-`criar_usuarios_iniciais()` ainda semeia `admin@agro.com` e `gerente@agro.com` com credenciais conhecidas se estiverem ausentes. **TODO:** desabilitar essa criação automática em produção antes de uma nova publicação produtiva.
+O modelo `Log` registra o usuário, a ação, detalhes opcionais e a data/hora das operações de criação e atualização de produtos, criação/atualização/inativação de funcionários e criação de lançamentos de fluxo de caixa. Funcionários são removidos por *soft delete*: a exclusão define `ativo=false`, e a listagem retorna apenas registros ativos.
 
 ## Endpoints
 

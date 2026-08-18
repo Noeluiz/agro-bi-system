@@ -23,6 +23,7 @@ from app.auth import (
     hash_senha, verificar_senha, create_access_token,
     get_current_user, require_admin, COOKIE_NAME, COOKIE_SECURE, COOKIE_SAMESITE
 )
+from app.audit import registrar_log
 from app import schemas
 
 # Configure logging
@@ -135,7 +136,10 @@ def criar_categorias_iniciais():
 
 def criar_usuarios_iniciais():
     """Cria os usuários iniciais de teste (admin e gerente) se não existirem."""
-    # TODO(security): desabilitar esta semeadura de credenciais conhecidas em produção.
+    if os.getenv("ENVIRONMENT", "development").lower() == "production":
+        logger.info("Seed de usuários padrão ignorado em produção")
+        return
+
     db = next(get_db())
     try:
         usuarios_seed = [
@@ -343,7 +347,7 @@ async def obter_produto(
 async def criar_produto(
     produto: schemas.ProdutoBase,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user)
 ):
     """Create a new product. (Acesso ADMIN e GERENTE)"""
     try:
@@ -351,6 +355,7 @@ async def criar_produto(
         db.add(db_produto)
         db.commit()
         db.refresh(db_produto)
+        registrar_log(current_user.id, "CRIAR_PRODUTO", f"Produto #{db_produto.id}: {db_produto.nome}")
         return db_produto
     except Exception as e:
         logger.error(f"Erro ao criar produto: {e}")
@@ -363,7 +368,7 @@ async def atualizar_produto(
     produto_id: int,
     produto_update: schemas.ProdutoUpdate,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user)
 ):
     """Atualiza parcialmente os dados de um produto. (Acesso ADMIN e GERENTE)"""
     try:
@@ -389,6 +394,11 @@ async def atualizar_produto(
 
         db.commit()
         db.refresh(db_produto)
+        registrar_log(
+            current_user.id,
+            "ATUALIZAR_PRODUTO",
+            f"Produto #{db_produto.id}: campos {', '.join(dados_atualizacao.keys())}",
+        )
         return db_produto
     except HTTPException:
         raise
@@ -415,7 +425,7 @@ async def listar_funcionarios(
 async def criar_funcionario(
     funcionario: schemas.FuncionarioBase,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(require_admin)
+    current_user: Usuario = Depends(require_admin)
 ):
     """Create a new employee."""
     try:
@@ -423,6 +433,7 @@ async def criar_funcionario(
         db.add(db_funcionario)
         db.commit()
         db.refresh(db_funcionario)
+        registrar_log(current_user.id, "CRIAR_FUNCIONARIO", f"Funcionário #{db_funcionario.id}: {db_funcionario.nome}")
         return db_funcionario
     except Exception as e:
         logger.error(f"Erro ao criar funcionario: {e}")
@@ -435,7 +446,7 @@ async def atualizar_funcionario(
     funcionario_id: int,
     funcionario_update: schemas.FuncionarioUpdate,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(require_admin)
+    current_user: Usuario = Depends(require_admin)
 ):
     """Atualiza os dados de um funcionário. (ADMIN only)"""
     try:
@@ -452,6 +463,11 @@ async def atualizar_funcionario(
 
         db.commit()
         db.refresh(db_funcionario)
+        registrar_log(
+            current_user.id,
+            "ATUALIZAR_FUNCIONARIO",
+            f"Funcionário #{db_funcionario.id}: campos {', '.join(dados_atualizacao.keys())}",
+        )
         return db_funcionario
     except HTTPException:
         raise
@@ -464,7 +480,7 @@ async def atualizar_funcionario(
 async def deletar_funcionario(
     funcionario_id: int,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(require_admin)
+    current_user: Usuario = Depends(require_admin)
 ):
     """Delete an employee. (ADMIN only)"""
     try:
@@ -472,8 +488,9 @@ async def deletar_funcionario(
         if not db_funcionario:
             raise HTTPException(status_code=404, detail="Funcionário não encontrado")
         
-        db.delete(db_funcionario)
+        db_funcionario.ativo = False
         db.commit()
+        registrar_log(current_user.id, "INATIVAR_FUNCIONARIO", f"Funcionário #{db_funcionario.id}: {db_funcionario.nome}")
         return None
     except HTTPException:
         raise
@@ -509,7 +526,7 @@ async def listar_fluxo_caixa(
 async def criar_fluxo_caixa(
     fluxo: schemas.FluxoCaixaBase,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(require_admin)
+    current_user: Usuario = Depends(require_admin)
 ):
     """Create a new cash flow record. (ADMIN only)"""
     try:
@@ -517,6 +534,11 @@ async def criar_fluxo_caixa(
         db.add(db_fluxo)
         db.commit()
         db.refresh(db_fluxo)
+        registrar_log(
+            current_user.id,
+            "CRIAR_FLUXO_CAIXA",
+            f"Lançamento #{db_fluxo.id}: {db_fluxo.tipo} - {db_fluxo.categoria_financeira}",
+        )
         return db_fluxo
     except Exception as e:
         logger.error(f"Erro ao criar fluxo de caixa: {e}")

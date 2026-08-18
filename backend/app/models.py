@@ -20,6 +20,18 @@ class Usuario(Base):
     def __repr__(self):
         return f"<Usuario {self.email} ({self.role})>"
 
+
+class Log(Base):
+    __tablename__ = "logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False, index=True)
+    acao = Column(String(100), nullable=False)
+    detalhes = Column(Text, nullable=True)
+    data_hora = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    usuario = relationship("Usuario")
+
 class Categoria(Base):
     __tablename__ = "categorias"
     
@@ -68,7 +80,7 @@ class Funcionario(Base):
     cargo = Column(String(100), nullable=False)
     salario_base = Column(DECIMAL(10, 2), nullable=False)
     data_admissao = Column(Date, nullable=False)
-    ativo = Column(Boolean, default=True)
+    ativo = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     folha_pagamento = relationship("FolhaPagamento", back_populates="funcionario")
