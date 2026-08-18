@@ -10,6 +10,8 @@ import Estoque from './components/Estoque';
 import Alertas from './components/Alertas';
 import NotFound from './components/NotFound';
 import Privacidade from './components/Privacidade';
+import Safras from './components/Safras';
+import DetalhesSafra from './components/DetalhesSafra';
 import { getRole, getUserName, isAuthenticated, logout } from './auth';
 
 function Sistema({ role, userName, onLogout }) {
@@ -17,6 +19,7 @@ function Sistema({ role, userName, onLogout }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error] = useState(null);
+  const [safraId, setSafraId] = useState(null);
 
   useEffect(() => {
     setLoading(false);
@@ -24,10 +27,24 @@ function Sistema({ role, userName, onLogout }) {
 
   const handleNavigate = (section) => {
     setActiveSection(section);
+    setSafraId(null);
     setMobileMenuOpen(false);
   };
 
+  const handleSelectSafra = (id) => {
+    setSafraId(id);
+  };
+
+  const handleBackFromSafra = () => {
+    setSafraId(null);
+  };
+
   const renderSection = () => {
+    // Se estamos vendo detalhes de uma safra específica
+    if (safraId !== null) {
+      return <DetalhesSafra safraId={safraId} onBack={handleBackFromSafra} />;
+    }
+
     switch (activeSection) {
       case 'dashboard':
         return <Dashboard />;
@@ -35,6 +52,8 @@ function Sistema({ role, userName, onLogout }) {
         return <Estoque />;
       case 'alertas':
         return <Alertas />;
+      case 'safras':
+        return <Safras onSelectSafra={handleSelectSafra} />;
       case 'financeiro':
         return role === 'ADMIN' ? <Financeiro /> : <AcessoNegado />;
       case 'rh':

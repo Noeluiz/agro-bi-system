@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DECIMAL, DateTime, Date, Boolean, ForeignKey, CheckConstraint, Text, func
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import date, datetime
 from app.database import Base
 
 class Usuario(Base):
@@ -72,6 +72,7 @@ class Produto(Base):
     fornecedor = relationship("Fornecedor", back_populates="produtos")
     alertas = relationship("AlertaEstoque", back_populates="produto")
     itens_compra = relationship("ItemCompra", back_populates="produto")
+    aplicacoes = relationship("AplicacaoInsumo", back_populates="produto")
 
 class Funcionario(Base):
     __tablename__ = "funcionarios"
@@ -130,6 +131,8 @@ class Safra(Base):
     custo_total = Column(DECIMAL(12, 2), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    aplicacoes = relationship("AplicacaoInsumo", back_populates="safra")
+
 
 class Compra(Base):
     __tablename__ = "compras"
@@ -154,6 +157,21 @@ class ItemCompra(Base):
 
     compra = relationship("Compra", back_populates="itens")
     produto = relationship("Produto", back_populates="itens_compra")
+
+
+class AplicacaoInsumo(Base):
+    __tablename__ = "aplicacoes_insumos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    safra_id = Column(Integer, ForeignKey("safras.id"), nullable=False, index=True)
+    produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=False, index=True)
+    quantidade_usada = Column(DECIMAL(12, 2), nullable=False)
+    custo_total = Column(DECIMAL(12, 2), nullable=False)
+    data_aplicacao = Column(Date, default=date.today, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    safra = relationship("Safra", back_populates="aplicacoes")
+    produto = relationship("Produto", back_populates="aplicacoes")
 
 class AlertaEstoque(Base):
     __tablename__ = "alertas_estoque"

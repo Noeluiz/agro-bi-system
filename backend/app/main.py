@@ -18,7 +18,7 @@ import traceback
 from app.database import get_db, init_db
 from app.models import (
     Categoria, Fornecedor, Produto, Funcionario, FolhaPagamento,
-    FluxoCaixa, Safra, AlertaEstoque, Usuario, Compra, ItemCompra
+    FluxoCaixa, Safra, AlertaEstoque, Usuario, Compra, ItemCompra, AplicacaoInsumo
 )
 from app.auth import (
     hash_senha, verificar_senha, create_access_token,
@@ -649,6 +649,55 @@ async def criar_safra(
         logger.error(f"Erro ao criar safra: {e}")
         db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao criar safra")
+
+
+# ============= APLICAÇÕES DE INSUMOS =============
+@app.post("/api/aplicacoes", response_model=schemas.AplicacaoInsumoResponse, status_code=status.HTTP_201_CREATED)
+async def criar_aplicacao_insumo(
+    aplicacao: schemas.AplicacaoInsumoCreate,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """Aplica um insumo à safra, baixando estoque e incorporando o custo de forma atômica."""
+    try:
+        safra = db.query(Safra).filter(Safra.id == aplicacao.safra_id).with_for_update().first()
+        if not safra:
+            raise HTTPException(status_code=404, detail="Safra não encontrada")
+
+        produto = db.query(Produto).filter(Produto.id == aplicacao.produto_id).with_for_update().first()
+        if not produto:
+            raise HTTPException(status_code=404, detail="Produto não encontrado")
+        if produto.estoque_atual < aplicacao.quantidade_usada:
+            raise HTTPException(status_code=422, detail="Estoque insuficiente para esta aplicação")
+
+        custo_aplicacao = produto.preco_custo * aplicacao.quantidade_usada
+        produto.estoque_atual -= aplicacao.quantidade_usada
+        custo_base = safra.custo_total if safra.custo_total is not None else safra.custo_total_acumulado
+        safra.custo_total = (custo_base or Decimal("0")) + custo_aplicacao
+
+        db_aplicacao = AplicacaoInsumo(
+            safra_id=safra.id,
+            produto_id=produto.id,
+            quantidade_usada=aplicacao.quantidade_usada,
+            custo_total=custo_aplicacao,
+            data_aplicacao=aplicacao.data_aplicacao or date.today(),
+        )
+        db.add(db_aplicacao)
+        db.commit()
+        db.refresh(db_aplicacao)
+        registrar_log(
+            current_user.id,
+            "APLICACAO_INSUMO",
+            f"Aplicação #{db_aplicacao.id}: safra #{safra.id}, produto #{produto.id}, quantidade {aplicacao.quantidade_usada}",
+        )
+        return db_aplicacao
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Erro ao registrar aplicação de insumo: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao registrar aplicação de insumo")
 
 # ============= ALERTAS DE ESTOQUE =============
 @app.get("/api/alertas-estoque", response_model=List[schemas.AlertaEstoqueResponse])

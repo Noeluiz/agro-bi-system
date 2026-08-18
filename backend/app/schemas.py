@@ -183,6 +183,25 @@ class CompraResponse(BaseModel):
     class Config:
         from_attributes = True
 
+# Aplicação de insumos Schemas
+class AplicacaoInsumoCreate(BaseModel):
+    safra_id: int
+    produto_id: int
+    quantidade_usada: Decimal = Field(gt=0)
+    data_aplicacao: Optional[date] = None
+
+class AplicacaoInsumoResponse(BaseModel):
+    id: int
+    safra_id: int
+    produto_id: int
+    quantidade_usada: Decimal
+    custo_total: Decimal
+    data_aplicacao: date
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
 # Safra Schemas
 class SafraBase(BaseModel):
     nome_safra: str
