@@ -144,13 +144,16 @@ export default function Estoque() {
       p.fornecedor?.nome || '',
       p.estoque_atual,
       p.estoque_minimo,
-      p.preco_custo,
-      p.preco_venda,
+      formatarMoeda(p.preco_custo),
+      formatarMoeda(p.preco_venda),
       p.unidade_medida
     ]);
 
-    const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const escapeCsv = (valor) => `"${String(valor ?? '').replace(/"/g, '""')}"`;
+    const csv = `\uFEFFsep=;\r\n${[headers, ...rows]
+      .map((row) => row.map(escapeCsv).join(';'))
+      .join('\r\n')}`;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
