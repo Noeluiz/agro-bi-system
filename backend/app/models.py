@@ -45,13 +45,14 @@ class Fornecedor(Base):
     __tablename__ = "fornecedores"
     
     id = Column(Integer, primary_key=True, index=True)
-    nome = Column(String(150), nullable=False)
+    nome = Column(String(150), unique=True, nullable=False)
     cnpj = Column(String(18), unique=True, nullable=True)
     email = Column(String(100), nullable=True)
     telefone = Column(String(15), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     produtos = relationship("Produto", back_populates="fornecedor")
+    compras = relationship("Compra", back_populates="fornecedor")
 
 class Produto(Base):
     __tablename__ = "produtos"
@@ -70,6 +71,7 @@ class Produto(Base):
     categoria = relationship("Categoria", back_populates="produtos")
     fornecedor = relationship("Fornecedor", back_populates="produtos")
     alertas = relationship("AlertaEstoque", back_populates="produto")
+    itens_compra = relationship("ItemCompra", back_populates="produto")
 
 class Funcionario(Base):
     __tablename__ = "funcionarios"
@@ -124,7 +126,34 @@ class Safra(Base):
     hectares_plantados = Column(DECIMAL(10, 2), nullable=False)
     sacas_produzidas = Column(DECIMAL(10, 2), nullable=True)
     custo_total_acumulado = Column(DECIMAL(12, 2), default=0, nullable=False)
+    producao_total = Column(DECIMAL(12, 2), nullable=True)
+    custo_total = Column(DECIMAL(12, 2), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Compra(Base):
+    __tablename__ = "compras"
+
+    id = Column(Integer, primary_key=True, index=True)
+    fornecedor_id = Column(Integer, ForeignKey("fornecedores.id"), nullable=False, index=True)
+    valor_total = Column(DECIMAL(12, 2), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    fornecedor = relationship("Fornecedor", back_populates="compras")
+    itens = relationship("ItemCompra", back_populates="compra", cascade="all, delete-orphan")
+
+
+class ItemCompra(Base):
+    __tablename__ = "itens_compra"
+
+    id = Column(Integer, primary_key=True, index=True)
+    compra_id = Column(Integer, ForeignKey("compras.id"), nullable=False, index=True)
+    produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=False, index=True)
+    quantidade = Column(DECIMAL(12, 2), nullable=False)
+    preco_unitario = Column(DECIMAL(12, 2), nullable=False)
+
+    compra = relationship("Compra", back_populates="itens")
+    produto = relationship("Produto", back_populates="itens_compra")
 
 class AlertaEstoque(Base):
     __tablename__ = "alertas_estoque"

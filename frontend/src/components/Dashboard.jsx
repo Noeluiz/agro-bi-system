@@ -98,7 +98,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Seção 1: Métricas Principais (4 cards) */}
+      {/* Seção 1: Métricas Principais */}
       {metricas && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Card 1: Faturamento Estimado */}
@@ -150,6 +150,35 @@ export default function Dashboard() {
                 </p>
               </div>
               <TrendingDown className="w-8 h-8 text-slate-600" />
+            </div>
+          </div>
+
+          {/* Card 5: Custo por Saca */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-600 text-sm">Custo por Saca</p>
+                <p className="text-2xl font-bold text-emerald-700 mt-2">
+                  {formatarMoeda(metricas.custo_por_saca)}
+                </p>
+              </div>
+              <Package className="w-8 h-8 text-emerald-700" />
+            </div>
+          </div>
+
+          {/* Card 6: Produtividade */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-600 text-sm">Produtividade (sc/ha)</p>
+                <p className="text-2xl font-bold text-blue-700 mt-2">
+                  {Number(metricas.produtividade_sacas_por_hectare || 0).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+              </div>
+              <TrendingUp className="w-8 h-8 text-blue-700" />
             </div>
           </div>
         </div>

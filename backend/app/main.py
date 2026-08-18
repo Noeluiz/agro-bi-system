@@ -7,6 +7,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
+from sqlalchemy.exc import IntegrityError
 from decimal import Decimal
 from datetime import date, datetime, timedelta
 from typing import Optional, List
@@ -17,7 +18,7 @@ import traceback
 from app.database import get_db, init_db
 from app.models import (
     Categoria, Fornecedor, Produto, Funcionario, FolhaPagamento,
-    FluxoCaixa, Safra, AlertaEstoque, Usuario
+    FluxoCaixa, Safra, AlertaEstoque, Usuario, Compra, ItemCompra
 )
 from app.auth import (
     hash_senha, verificar_senha, create_access_token,
@@ -265,6 +266,9 @@ async def criar_categoria(
         db.commit()
         db.refresh(db_categoria)
         return db_categoria
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Já existe uma categoria com este nome")
     except Exception as e:
         logger.error(f"Erro ao criar categoria: {e}")
         db.rollback()
@@ -297,6 +301,9 @@ async def criar_fornecedor(
         db.commit()
         db.refresh(db_fornecedor)
         return db_fornecedor
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Já existe um fornecedor com este nome ou CNPJ")
     except Exception as e:
         logger.error(f"Erro ao criar fornecedor: {e}")
         db.rollback()
@@ -545,6 +552,65 @@ async def criar_fluxo_caixa(
         db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao criar fluxo de caixa")
 
+
+# ============= COMPRAS (Financeiro/Estoque - somente ADMIN) =============
+@app.post("/api/compras", response_model=schemas.CompraResponse, status_code=status.HTTP_201_CREATED)
+async def criar_compra(
+    compra: schemas.CompraCreate,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_admin),
+):
+    """Registra uma compra e incorpora todos os itens ao estoque de forma atômica."""
+    try:
+        fornecedor = db.query(Fornecedor).filter(Fornecedor.id == compra.fornecedor_id).first()
+        if not fornecedor:
+            raise HTTPException(status_code=404, detail="Fornecedor não encontrado")
+
+        produto_ids = [item.produto_id for item in compra.itens]
+        if len(produto_ids) != len(set(produto_ids)):
+            raise HTTPException(status_code=422, detail="Um produto só pode aparecer uma vez na compra")
+
+        produtos = {}
+        for produto_id in produto_ids:
+            produto = db.query(Produto).filter(Produto.id == produto_id).with_for_update().first()
+            if not produto:
+                raise HTTPException(status_code=404, detail=f"Produto {produto_id} não encontrado")
+            produtos[produto_id] = produto
+
+        valor_total = sum(
+            (item.quantidade * item.preco_unitario for item in compra.itens),
+            Decimal("0"),
+        )
+        db_compra = Compra(fornecedor_id=fornecedor.id, valor_total=valor_total)
+        db.add(db_compra)
+        db.flush()
+
+        for item in compra.itens:
+            produto = produtos[item.produto_id]
+            produto.estoque_atual += item.quantidade
+            db.add(ItemCompra(
+                compra_id=db_compra.id,
+                produto_id=produto.id,
+                quantidade=item.quantidade,
+                preco_unitario=item.preco_unitario,
+            ))
+
+        db.commit()
+        db.refresh(db_compra)
+        registrar_log(
+            current_user.id,
+            "CRIAR_COMPRA",
+            f"Compra #{db_compra.id} do fornecedor #{fornecedor.id}: {len(compra.itens)} item(ns)",
+        )
+        return db_compra
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Erro ao criar compra: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao registrar compra")
+
 # ============= SAFRAS =============
 @app.get("/api/safras", response_model=List[schemas.SafraResponse])
 async def listar_safras(
@@ -567,7 +633,14 @@ async def criar_safra(
 ):
     """Create a new crop record. (Acesso ADMIN e GERENTE)"""
     try:
-        db_safra = Safra(**safra.dict())
+        dados_safra = safra.model_dump()
+        dados_safra["producao_total"] = (
+            dados_safra["producao_total"]
+            if dados_safra["producao_total"] is not None
+            else dados_safra["sacas_produzidas"]
+        )
+        dados_safra["custo_total"] = dados_safra["custo_total"] if dados_safra["custo_total"] is not None else dados_safra["custo_total_acumulado"]
+        db_safra = Safra(**dados_safra)
         db.add(db_safra)
         db.commit()
         db.refresh(db_safra)
@@ -694,11 +767,22 @@ async def obter_metricas_bi(
         
         safras = db.query(Safra).filter(Safra.hectares_plantados > 0).all()
         if safras:
-            total_custo = sum(s.custo_total_acumulado for s in safras)
-            total_hectares = sum(s.hectares_plantados for s in safras)
+            total_custo = sum(
+                (s.custo_total if s.custo_total is not None else s.custo_total_acumulado for s in safras),
+                Decimal("0"),
+            )
+            total_producao = sum(
+                (s.producao_total if s.producao_total is not None else s.sacas_produzidas or Decimal("0") for s in safras),
+                Decimal("0"),
+            )
+            total_hectares = sum((s.hectares_plantados for s in safras), Decimal("0"))
             custo_por_hectare = float(total_custo / total_hectares) if total_hectares > 0 else 0.0
+            custo_por_saca = float(total_custo / total_producao) if total_producao > 0 else 0.0
+            produtividade_sacas_por_hectare = float(total_producao / total_hectares) if total_hectares > 0 else 0.0
         else:
             custo_por_hectare = 0.0
+            custo_por_saca = 0.0
+            produtividade_sacas_por_hectare = 0.0
         
         total_estoque_custo = Decimal("0")
         for p in produtos:
@@ -711,6 +795,8 @@ async def obter_metricas_bi(
             lucro_estimado=float(lucro_estimado),
             margem_lucro_media=margem_lucro_media,
             custo_por_hectare=custo_por_hectare,
+            custo_por_saca=custo_por_saca,
+            produtividade_sacas_por_hectare=produtividade_sacas_por_hectare,
             total_estoque_custo=float(total_estoque_custo),
             total_funcionarios=total_funcionarios or 0
         )
@@ -721,6 +807,8 @@ async def obter_metricas_bi(
             lucro_estimado=0.0,
             margem_lucro_media=0.0,
             custo_por_hectare=0.0,
+            custo_por_saca=0.0,
+            produtividade_sacas_por_hectare=0.0,
             total_estoque_custo=0.0,
             total_funcionarios=0
         )

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional, List
@@ -156,6 +156,33 @@ class FluxoCaixaResponse(FluxoCaixaBase):
     class Config:
         from_attributes = True
 
+# Compras Schemas
+class ItemCompraBase(BaseModel):
+    produto_id: int
+    quantidade: Decimal = Field(gt=0)
+    preco_unitario: Decimal = Field(ge=0)
+
+class CompraCreate(BaseModel):
+    fornecedor_id: int
+    itens: List[ItemCompraBase] = Field(min_length=1)
+
+class ItemCompraResponse(ItemCompraBase):
+    id: int
+    compra_id: int
+
+    class Config:
+        from_attributes = True
+
+class CompraResponse(BaseModel):
+    id: int
+    fornecedor_id: int
+    valor_total: Decimal
+    created_at: datetime
+    itens: List[ItemCompraResponse]
+
+    class Config:
+        from_attributes = True
+
 # Safra Schemas
 class SafraBase(BaseModel):
     nome_safra: str
@@ -164,7 +191,9 @@ class SafraBase(BaseModel):
     data_fim: Optional[date] = None
     hectares_plantados: Decimal
     sacas_produzidas: Optional[Decimal] = None
-    custo_total_acumulado: Decimal
+    custo_total_acumulado: Decimal = Decimal("0")
+    producao_total: Optional[Decimal] = None
+    custo_total: Optional[Decimal] = None
 
 class SafraResponse(SafraBase):
     id: int
@@ -199,6 +228,8 @@ class MetricasBI(BaseModel):
     lucro_estimado: float
     margem_lucro_media: float
     custo_por_hectare: float
+    custo_por_saca: float
+    produtividade_sacas_por_hectare: float
     total_estoque_custo: float
     total_funcionarios: int
 

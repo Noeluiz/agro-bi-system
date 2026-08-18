@@ -45,6 +45,7 @@ O modelo `Log` registra o usuário, a ação, detalhes opcionais e a data/hora d
 - `GET` / `POST /api/fornecedores`
 - `GET` / `POST /api/produtos`
 - `GET` / `PATCH /api/produtos/{produto_id}`: o `PATCH` aceita qualquer campo editável do produto, incluindo estoque e preços.
+- `POST /api/compras`: registra uma compra com fornecedor e itens e atualiza o estoque de cada produto de forma atômica.
 - `GET` / `POST /api/safras`
 - `GET` / `POST /api/alertas-estoque`
 - `PATCH` / `DELETE /api/alertas-estoque/{alerta_id}`
@@ -71,7 +72,11 @@ As quatro primeiras exigem `ADMIN`; `alertas-resumo` aceita `ADMIN` e `GERENTE`.
 
 ## Dados e frontend
 
-Os modelos principais são `Usuario`, `Categoria`, `Fornecedor`, `Produto`, `Funcionario`, `FolhaPagamento`, `FluxoCaixa`, `Safra` e `AlertaEstoque`.
+Os modelos principais são `Usuario`, `Categoria`, `Fornecedor`, `Produto`, `Compra`, `ItemCompra`, `Funcionario`, `FolhaPagamento`, `FluxoCaixa`, `Safra` e `AlertaEstoque`.
+
+Uma `Compra` possui fornecedor, valor total e itens. Cada item registra produto, quantidade e preço unitário; ao registrar a compra, a quantidade é incorporada ao estoque atual do produto na mesma transação.
+
+Safras aceitam os campos `producao_total` (sacas) e `custo_total` (R$), mantendo os campos legados para compatibilidade. O Dashboard calcula custo por saca e produtividade em sacas por hectare com esses dados.
 
 No startup, o backend garante as categorias agrícolas `Adubos`, `Defensivos`, `Sementes`, `Peças` e `Combustíveis`, sem alterar os cadastros existentes. Elas ficam disponíveis no seletor ao cadastrar produtos.
 
