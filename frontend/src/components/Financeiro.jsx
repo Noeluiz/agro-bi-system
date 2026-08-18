@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Trash2, AlertCircle, TrendingUp, TrendingDown, Download } from 'lucide-react';
 import CadastroModal from './CadastroModal';
 import { apiFetch } from '../auth';
+import { formatarMoeda } from '../utils/formatters';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -151,13 +152,6 @@ export default function Financeiro() {
     }
   };
 
-  const formatarValor = (valor) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(valor || 0);
-  };
-
   const calcularSaldos = () => {
     const receitas = lancamentos
       .filter(l => l.tipo === 'Receita')
@@ -233,7 +227,7 @@ export default function Financeiro() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-600 text-sm">Receitas</p>
-              <p className="text-2xl font-bold text-green-700 mt-2">{formatarValor(receitas)}</p>
+              <p className="text-2xl font-bold text-green-700 mt-2">{formatarMoeda(receitas)}</p>
             </div>
             <TrendingUp className="w-8 h-8 text-green-700" />
           </div>
@@ -243,7 +237,7 @@ export default function Financeiro() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-600 text-sm">Despesas</p>
-              <p className="text-2xl font-bold text-red-700 mt-2">{formatarValor(despesas)}</p>
+              <p className="text-2xl font-bold text-red-700 mt-2">{formatarMoeda(despesas)}</p>
             </div>
             <TrendingDown className="w-8 h-8 text-red-700" />
           </div>
@@ -260,7 +254,7 @@ export default function Financeiro() {
                 Saldo
               </p>
               <p className={`text-2xl font-bold mt-2 ${saldo >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                {formatarValor(saldo)}
+                {formatarMoeda(saldo)}
               </p>
             </div>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
@@ -366,7 +360,7 @@ export default function Financeiro() {
                       <span
                         className={lanc.tipo === 'Receita' ? 'text-green-700' : 'text-red-700'}
                       >
-                        {lanc.tipo === 'Receita' ? '+' : '-'} {formatarValor(lanc.valor)}
+                        {lanc.tipo === 'Receita' ? '+' : '-'} {formatarMoeda(lanc.valor)}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600 max-w-xs truncate">

@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, AlertCircle } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { apiFetch } from '../auth';
+import { formatarMoeda } from '../utils/formatters';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -58,6 +60,9 @@ export default function CadastroModal({
   onCategoriesUpdated = () => { },
   onFornecedoresUpdated = () => { },
 }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const modalNoHistorico = useRef(null);
   // Estado para abas (apenas quando tipo === 'produto')
   const [activeTab, setActiveTab] = useState('produto');
   const [formData, setFormData] = useState({});
@@ -90,6 +95,44 @@ export default function CadastroModal({
       setError('');
     }
   }, [isOpen, tipo]);
+
+  // Uma entrada no histórico permite que o botão Voltar feche apenas o modal.
+  useEffect(() => {
+    const modalAbertoNoHistorico = location.state?.cadastroModal === true;
+
+    if (!isOpen) {
+      modalNoHistorico.current = null;
+      return;
+    }
+
+    if (modalAbertoNoHistorico) {
+      modalNoHistorico.current = location.key;
+      return;
+    }
+
+    if (modalNoHistorico.current === null) {
+      modalNoHistorico.current = 'pendente';
+      navigate(`${location.pathname}${location.search}`, {
+        state: { ...location.state, cadastroModal: true },
+      });
+      return;
+    }
+
+    if (modalNoHistorico.current === 'pendente') {
+      return;
+    }
+
+    modalNoHistorico.current = null;
+    onClose();
+  }, [isOpen, location.key, location.pathname, location.search, location.state, navigate, onClose]);
+
+  const handleClose = () => {
+    onClose();
+    if (location.state?.cadastroModal) {
+      modalNoHistorico.current = null;
+      navigate(-1);
+    }
+  };
 
   // Muda aba e reseta form
   const handleTabChange = (tab) => {
@@ -300,7 +343,7 @@ export default function CadastroModal({
         }, 1000);
       } else {
         // Outros tipos fecham o modal
-        onClose();
+        handleClose();
         setFormData(getDefaultValues(currentTipo));
       }
     } catch (err) {
@@ -321,7 +364,7 @@ export default function CadastroModal({
         <div className="sticky top-0 bg-white flex justify-between items-center p-6 border-b border-slate-200">
           <h2 className="text-2xl font-bold text-emerald-800">{getTitle()}</h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             disabled={isSubmitting}
             className="p-2 rounded-lg hover:bg-stone-100 transition disabled:opacity-50"
             aria-label="Fechar"
@@ -469,6 +512,7 @@ export default function CadastroModal({
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-700"
                     disabled={isSubmitting}
                   />
+                  <p className="mt-1 text-xs text-slate-500">Valor informado: {formatarMoeda(formData.preco_custo)}</p>
                 </div>
 
                 <div>
@@ -483,6 +527,7 @@ export default function CadastroModal({
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-700"
                     disabled={isSubmitting}
                   />
+                  <p className="mt-1 text-xs text-slate-500">Valor informado: {formatarMoeda(formData.preco_venda)}</p>
                 </div>
               </div>
             </>
@@ -617,6 +662,7 @@ export default function CadastroModal({
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-700"
                     disabled={isSubmitting}
                   />
+                  <p className="mt-1 text-xs text-slate-500">Valor informado: {formatarMoeda(formData.valor)}</p>
                 </div>
 
                 <div>
@@ -720,6 +766,7 @@ export default function CadastroModal({
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-700"
                     disabled={isSubmitting}
                   />
+                  <p className="mt-1 text-xs text-slate-500">Valor informado: {formatarMoeda(formData.salario_base)}</p>
                 </div>
 
                 <div className="md:col-span-2">

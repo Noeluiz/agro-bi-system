@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertCircle, Menu } from 'lucide-react';
+import { AlertCircle, LogOut, Menu, User } from 'lucide-react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -91,6 +91,20 @@ function Sistema({ role, userName, onLogout }) {
                 <h1 className="text-xl md:text-3xl font-bold text-emerald-800 truncate">Agro-BI System</h1>
                 <p className="text-slate-600 mt-1 text-xs md:text-sm">Gestão Agrícola Inteligente</p>
               </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="hidden sm:flex items-center gap-2 text-sm text-slate-600">
+                <User className="w-4 h-4" aria-hidden="true" />
+                <span className="max-w-36 truncate">{userName || 'Usuário'}</span>
+              </div>
+              <button
+                onClick={onLogout}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition"
+                aria-label="Sair do sistema"
+              >
+                <LogOut className="w-4 h-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Sair</span>
+              </button>
             </div>
           </div>
         </div>

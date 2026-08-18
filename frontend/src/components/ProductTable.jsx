@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
+import { formatarMoeda } from '../utils/formatters';
 
 export default function ProductTable({ produtos }) {
   const [sortConfig, setSortConfig] = useState({ key: 'nome', direction: 'asc' });
@@ -77,8 +78,8 @@ export default function ProductTable({ produtos }) {
                   <td className="px-6 py-4 text-sm text-slate-600">{produto.categoria?.nome || '-'}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">{produto.fornecedor?.nome || '-'}</td>
                   <td className="px-6 py-4 text-sm text-slate-800">{parseFloat(produto.estoque_atual).toLocaleString('pt-BR')}</td>
-                  <td className="px-6 py-4 text-sm text-slate-800">R$ {parseFloat(produto.preco_custo).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                  <td className="px-6 py-4 text-sm text-slate-800">R$ {parseFloat(produto.preco_venda).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td className="px-6 py-4 text-sm text-slate-800">{formatarMoeda(produto.preco_custo)}</td>
+                  <td className="px-6 py-4 text-sm text-slate-800">{formatarMoeda(produto.preco_venda)}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">{produto.unidade_medida}</td>
                   <td className="px-6 py-4 text-sm font-semibold text-emerald-700">{margem}%</td>
                 </tr>

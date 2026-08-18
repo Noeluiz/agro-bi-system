@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, AlertCircle } from 'lucide-react';
 import CadastroModal from './CadastroModal';
+import LoadingSpinner from './LoadingSpinner';
 import { apiFetch } from '../auth';
+import { formatarMoeda } from '../utils/formatters';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -75,24 +77,8 @@ export default function RH() {
     }
   };
 
-  const formatarSalario = (valor) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(valor || 0);
-  };
-
   if (loading) {
-    return (
-      <div className="p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-700 mx-auto mb-3"></div>
-            <p className="text-slate-600">Carregando funcionários...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner message="Carregando funcionários..." />;
   }
 
   return (
@@ -157,7 +143,7 @@ export default function RH() {
                     <td className="px-6 py-4 text-sm text-slate-600">{func.cpf || '-'}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{func.cargo}</td>
                     <td className="px-6 py-4 text-sm text-slate-800 font-medium">
-                      {formatarSalario(func.salario_base)}
+                      {formatarMoeda(func.salario_base)}
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600">
                       {formatarData(func.data_admissao)}

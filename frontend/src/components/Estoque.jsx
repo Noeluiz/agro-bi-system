@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Plus, AlertCircle, Edit2, Search } from 'lucide-react';
 import CadastroModal from './CadastroModal';
-import ProductTable from './ProductTable';
+import LoadingSpinner from './LoadingSpinner';
 import { apiFetch } from '../auth';
+import { formatarMoeda } from '../utils/formatters';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -158,16 +159,7 @@ export default function Estoque() {
   };
 
   if (loading) {
-    return (
-      <div className="p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-700 mx-auto mb-3"></div>
-            <p className="text-slate-600">Carregando estoque...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner message="Carregando estoque..." />;
   }
 
   return (
@@ -362,8 +354,8 @@ export default function Estoque() {
                     <td className="px-6 py-4 text-sm text-slate-600">{produto.categoria?.nome || '-'}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{produto.fornecedor?.nome || '-'}</td>
                     <td className="px-6 py-4 text-sm text-slate-800">{parseFloat(produto.estoque_atual).toLocaleString('pt-BR')}</td>
-                    <td className="px-6 py-4 text-sm text-slate-800">R$ {parseFloat(produto.preco_custo).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                    <td className="px-6 py-4 text-sm text-slate-800">R$ {parseFloat(produto.preco_venda).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                    <td className="px-6 py-4 text-sm text-slate-800">{formatarMoeda(produto.preco_custo)}</td>
+                    <td className="px-6 py-4 text-sm text-slate-800">{formatarMoeda(produto.preco_venda)}</td>
                     <td className="px-6 py-4 text-sm flex gap-2">
                       <button
                         onClick={() => handleEditarEstoque(produto)}

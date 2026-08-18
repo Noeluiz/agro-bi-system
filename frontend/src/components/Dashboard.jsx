@@ -3,6 +3,7 @@ import { TrendingUp, TrendingDown, AlertCircle, Users, Package } from 'lucide-re
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { apiFetch } from '../auth';
+import { formatarMoeda } from '../utils/formatters';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -65,13 +66,6 @@ export default function Dashboard() {
     }
   };
 
-  const formatarValor = (valor) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(valor || 0);
-  };
-
   if (loading) {
     return (
       <div className="p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
@@ -113,7 +107,7 @@ export default function Dashboard() {
               <div>
                 <p className="text-slate-600 text-sm">Faturamento Estimado</p>
                 <p className="text-2xl font-bold text-emerald-700 mt-2">
-                  {formatarValor(metricas.faturamento_estimado)}
+                  {formatarMoeda(metricas.faturamento_estimado)}
                 </p>
               </div>
               <TrendingUp className="w-8 h-8 text-emerald-700" />
@@ -126,7 +120,7 @@ export default function Dashboard() {
               <div>
                 <p className="text-slate-600 text-sm">Lucro Estimado</p>
                 <p className="text-2xl font-bold text-emerald-700 mt-2">
-                  {formatarValor(metricas.lucro_estimado)}
+                  {formatarMoeda(metricas.lucro_estimado)}
                 </p>
               </div>
               <TrendingUp className="w-8 h-8 text-emerald-700" />
@@ -152,7 +146,7 @@ export default function Dashboard() {
               <div>
                 <p className="text-slate-600 text-sm">Custo por Hectare</p>
                 <p className="text-2xl font-bold text-slate-800 mt-2">
-                  {formatarValor(metricas.custo_por_hectare)}
+                  {formatarMoeda(metricas.custo_por_hectare)}
                 </p>
               </div>
               <TrendingDown className="w-8 h-8 text-slate-600" />
@@ -173,7 +167,7 @@ export default function Dashboard() {
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="mes" />
               <YAxis />
-              <Tooltip formatter={(value) => formatarValor(value)} />
+              <Tooltip formatter={(value) => formatarMoeda(value)} />
               <Legend />
               <Line 
                 type="monotone" 
@@ -208,7 +202,7 @@ export default function Dashboard() {
                       </p>
                     </div>
                     <span className="text-sm font-bold text-emerald-700">
-                      {formatarValor(produto.valorTotal)}
+                      {formatarMoeda(produto.valorTotal)}
                     </span>
                   </div>
                 </div>
@@ -288,7 +282,7 @@ export default function Dashboard() {
                   <div>
                     <p className="text-purple-700 text-sm font-medium">Investimento Total em Estoque</p>
                     <p className="text-2xl font-bold text-purple-700 mt-1">
-                      {formatarValor(metricas.total_estoque_custo)}
+                      {formatarMoeda(metricas.total_estoque_custo)}
                     </p>
                   </div>
                 </div>
