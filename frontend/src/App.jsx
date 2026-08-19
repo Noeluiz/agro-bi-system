@@ -28,6 +28,8 @@ function Sistema({ role, userName, userEmail, onLogout }) {
   const [safraId, setSafraId] = useState(null);
   const [ordemView, setOrdemView] = useState('list');
   const [onboardingTarget, setOnboardingTarget] = useState(null);
+  const [onboardingPaused, setOnboardingPaused] = useState(false);
+  const [onboardingResume, setOnboardingResume] = useState(null);
 
   useEffect(() => {
     setLoading(false);
@@ -45,11 +47,32 @@ function Sistema({ role, userName, userEmail, onLogout }) {
     };
   }, [mobileMenuOpen]);
 
+  useEffect(() => {
+    const handleBrowserBack = () => {
+      if (onboardingPaused) {
+        setOnboardingPaused(false);
+        setOnboardingResume({ step: 2, message: 'Você ainda não criou um produto. Vamos tentar de novo.' });
+      }
+    };
+    window.addEventListener('popstate', handleBrowserBack);
+    return () => window.removeEventListener('popstate', handleBrowserBack);
+  }, [onboardingPaused]);
+
   const handleNavigate = (section) => {
+    if (onboardingPaused && section !== 'estoque') {
+      setOnboardingPaused(false);
+      setOnboardingResume({ step: 2, message: 'Você ainda não criou um produto. Vamos tentar de novo.' });
+    }
     setActiveSection(section);
     setSafraId(null);
     if (section === 'ordens-aplicacao') setOrdemView('list');
     setMobileMenuOpen(false);
+  };
+
+  const handleProductCreated = () => {
+    if (!onboardingPaused) return;
+    setOnboardingPaused(false);
+    setOnboardingResume({ step: 3, message: '' });
   };
 
   const handleSelectSafra = (id) => {
@@ -70,7 +93,7 @@ function Sistema({ role, userName, userEmail, onLogout }) {
       case 'dashboard':
         return <Dashboard />;
       case 'estoque':
-        return <Estoque role={role} />;
+        return <Estoque role={role} onProductCreated={handleProductCreated} />;
       case 'alertas':
         return <Alertas />;
       case 'safras':
@@ -117,7 +140,7 @@ function Sistema({ role, userName, userEmail, onLogout }) {
       />
 
       <main className="min-w-0 flex-1 overflow-auto">
-        <OnboardingTour userEmail={userEmail} onNavigate={handleNavigate} onHighlight={setOnboardingTarget} />
+        <OnboardingTour userEmail={userEmail} onNavigate={handleNavigate} onHighlight={setOnboardingTarget} onPause={() => setOnboardingPaused(true)} resumeSignal={onboardingResume} />
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg m-4">
             <div className="flex items-center">

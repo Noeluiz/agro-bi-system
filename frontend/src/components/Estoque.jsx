@@ -8,7 +8,7 @@ import { exportarRelatorioCsv, formatarNumeroBR } from '../utils/csvExport';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-export default function Estoque({ role }) {
+export default function Estoque({ role, onProductCreated }) {
   const [produtos, setProdutos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [fornecedores, setFornecedores] = useState([]);
@@ -69,6 +69,8 @@ export default function Estoque({ role }) {
 
   const handleNovoProduto = (novoProduto) => {
     setProdutos(prev => [...prev, novoProduto]);
+    if (onProductCreated) setModalAberto(false);
+    onProductCreated?.();
   };
 
   const handleCategoriesUpdated = (novasCategorias) => {
