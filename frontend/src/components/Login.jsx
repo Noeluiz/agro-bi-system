@@ -41,9 +41,9 @@ export default function Login({ onLogin }) {
       const nome = data.nome || '';
       const emailLogado = data.email || email;
 
-      saveSession({ token: data.access_token, role, nome, email: emailLogado });
+      saveSession({ role, nome, email: emailLogado });
 
-      if (onLogin) onLogin({ token: data.access_token, role, nome, email: emailLogado });
+      if (onLogin) onLogin({ role, nome, email: emailLogado });
     } catch (err) {
       setErro(err.message || 'Falha ao fazer login. Tente novamente.');
     } finally {

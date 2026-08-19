@@ -12,6 +12,8 @@ class Usuario(Base):
     senha_hash = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False, default='GERENTE')
     ativo = Column(Boolean, default=True, nullable=False)
+    falhas_login = Column(Integer, default=0, nullable=False)
+    bloqueado_ate = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (

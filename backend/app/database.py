@@ -51,6 +51,10 @@ def _aplicar_migracoes_aditivas():
             connection.execute(text("ALTER TABLE safras ADD COLUMN custo_total NUMERIC(12, 2)"))
         if "ativo" not in colunas_usuario:
             connection.execute(text("ALTER TABLE usuarios ADD COLUMN ativo BOOLEAN NOT NULL DEFAULT TRUE"))
+        if "falhas_login" not in colunas_usuario:
+            connection.execute(text("ALTER TABLE usuarios ADD COLUMN falhas_login INTEGER NOT NULL DEFAULT 0"))
+        if "bloqueado_ate" not in colunas_usuario:
+            connection.execute(text("ALTER TABLE usuarios ADD COLUMN bloqueado_ate TIMESTAMP NULL"))
 
         connection.execute(text("ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS ck_usuarios_role"))
         connection.execute(text(

@@ -1,4 +1,5 @@
 const TOKEN_KEY = 'agro_bi_token';
+const SESSION_KEY = 'agro_bi_session';
 const ROLE_KEY = 'agro_bi_role';
 const USER_NAME_KEY = 'agro_bi_user_name';
 const USER_EMAIL_KEY = 'agro_bi_user_email';
@@ -20,7 +21,7 @@ export function getUserEmail() {
 }
 
 export function isAuthenticated() {
-  return !!getToken();
+  return localStorage.getItem(SESSION_KEY) === 'true' || !!getToken();
 }
 
 export function isAdmin() {
@@ -28,10 +29,9 @@ export function isAdmin() {
 }
 
 export function saveSession({ token, role, nome, email }) {
-  // O token também é armazenado no cookie HttpOnly pelo backend.
-  // Guardamos no localStorage apenas para compatibilidade com o frontend atual
-  // e para conhecer a role/nome sem uma chamada extra.
-  localStorage.setItem(TOKEN_KEY, token);
+  // O token fica somente no cookie HttpOnly; o frontend guarda apenas metadados.
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.setItem(SESSION_KEY, 'true');
   localStorage.setItem(ROLE_KEY, role);
   if (nome) localStorage.setItem(USER_NAME_KEY, nome);
   if (email) localStorage.setItem(USER_EMAIL_KEY, email);
@@ -39,6 +39,7 @@ export function saveSession({ token, role, nome, email }) {
 
 export function clearSession() {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(ROLE_KEY);
   localStorage.removeItem(USER_NAME_KEY);
   localStorage.removeItem(USER_EMAIL_KEY);
@@ -64,15 +65,10 @@ export async function logout() {
  * 'Authorization: Bearer <TOKEN>' e envia cookies (credentials: 'include').
  */
 export async function apiFetch(url, options = {}) {
-  const token = getToken();
   const headers = {
     'Content-Type': 'application/json',
     ...(options.headers || {}),
   };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
 
   const response = await fetch(url, {
     ...options,
@@ -89,6 +85,5 @@ export async function apiFetch(url, options = {}) {
 }
 
 export function authHeaders() {
-  const token = getToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return {};
 }

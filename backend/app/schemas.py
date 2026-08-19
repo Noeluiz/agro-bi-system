@@ -3,6 +3,12 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional, List
 from enum import Enum
+from pydantic import field_validator
+import bleach
+
+
+def limpar_texto(value: str) -> str:
+    return bleach.clean(value.strip(), tags=[], attributes={}, strip=True)
 
 # ============= AUTH SCHEMAS =============
 
@@ -46,7 +52,12 @@ class TokenData(BaseModel):
 # ============= CATEGORIA SCHEMAS =============
 
 class CategoriaBase(BaseModel):
-    nome: str
+    nome: str = Field(min_length=1, max_length=100)
+
+    @field_validator("nome")
+    @classmethod
+    def sanitizar_nome(cls, value):
+        return limpar_texto(value)
 
 class CategoriaResponse(CategoriaBase):
     id: int
@@ -57,10 +68,15 @@ class CategoriaResponse(CategoriaBase):
 
 # Fornecedor Schemas
 class FornecedorBase(BaseModel):
-    nome: str
+    nome: str = Field(min_length=1, max_length=150)
     cnpj: Optional[str] = None
     email: Optional[str] = None
     telefone: Optional[str] = None
+
+    @field_validator("nome", "cnpj", "email", "telefone")
+    @classmethod
+    def sanitizar_campos(cls, value):
+        return limpar_texto(value) if value is not None else value
 
 class FornecedorResponse(FornecedorBase):
     id: int
@@ -71,14 +87,19 @@ class FornecedorResponse(FornecedorBase):
 
 # Produto Schemas
 class ProdutoBase(BaseModel):
-    nome: str
+    nome: str = Field(min_length=1, max_length=150)
     categoria_id: int
     fornecedor_id: int
     estoque_atual: Decimal
     estoque_minimo: Decimal
     preco_custo: Decimal
     preco_venda: Decimal
-    unidade_medida: str
+    unidade_medida: str = Field(min_length=1, max_length=20)
+
+    @field_validator("nome", "unidade_medida")
+    @classmethod
+    def sanitizar_texto(cls, value):
+        return limpar_texto(value)
 
 class ProdutoResponse(ProdutoBase):
     id: int
@@ -92,14 +113,19 @@ class ProdutoResponse(ProdutoBase):
 
 class ProdutoUpdate(BaseModel):
     """Campos que podem ser alterados parcialmente em um produto."""
-    nome: Optional[str] = None
+    nome: Optional[str] = Field(default=None, min_length=1, max_length=150)
     categoria_id: Optional[int] = None
     fornecedor_id: Optional[int] = None
     estoque_atual: Optional[Decimal] = None
     estoque_minimo: Optional[Decimal] = None
     preco_custo: Optional[Decimal] = None
     preco_venda: Optional[Decimal] = None
-    unidade_medida: Optional[str] = None
+    unidade_medida: Optional[str] = Field(default=None, min_length=1, max_length=20)
+
+    @field_validator("nome", "unidade_medida")
+    @classmethod
+    def sanitizar_texto(cls, value):
+        return limpar_texto(value) if value is not None else value
 
 
 class ProdutoComAlertaResponse(ProdutoResponse):

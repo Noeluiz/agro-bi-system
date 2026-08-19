@@ -70,9 +70,7 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 # ---------------------------------------------------------------------
 # CORS restrito (sem wildcard com credentials)
 # ---------------------------------------------------------------------
-# Origens permitidas mantidas explicitamente no código. CORS_ORIGINS não é lida.
-
-origins = [
+origins_padrao = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "https://agro-bi-system-production.up.railway.app",
@@ -80,37 +78,32 @@ origins = [
     "https://agro-bi-system-r30kftf2v-nlp-gdevs.vercel.app",
     "https://agro-bi-system-jy9cjtz6v-nlp-gdevs.vercel.app"
 ]
+origins = [origem.strip() for origem in os.getenv("CORS_ORIGINS", ",".join(origins_padrao)).split(",") if origem.strip()]
+if "*" in origins:
+    raise RuntimeError("CORS_ORIGINS não pode conter wildcard (*)")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
 # ---------------------------------------------------------------------
 # Security Headers (CSP, HSTS, X-Content-Type-Options, etc.)
 # ---------------------------------------------------------------------
-#@app.middleware("http")
-#async def security_headers(request: Request, call_next):
- #   response = await call_next(request)
- #   response.headers["X-Content-Type-Options"] = "nosniff"
- #   response.headers["Referrer-Policy"] = "no-referrer"
- #   response.headers["X-Frame-Options"] = "DENY"
- #   response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-   # response.headers["Content-Security-Policy"] = (
-      #  "default-src 'self'; "
-       # "script-src 'self'; "
-        #"style-src 'self' 'unsafe-inline'; "
-       # "img-src 'self' data:; "
-        #"connect-src 'self'"
-   # )
-    # HSTS apenas em produção (HTTPS)
- #   if os.getenv("ENABLE_HSTS", "false").lower() == "true":
-  #      response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-   # return response
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    if os.getenv("ENABLE_HSTS", "false").lower() == "true" or os.getenv("ENVIRONMENT", "development").lower() == "production":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
 
 
 # Initialize database on startup
@@ -283,14 +276,30 @@ async def login(request: Request, response: Response, form_data: OAuth2PasswordR
     Aceita 'application/x-www-form-urlencoded' (padrão OAuth2).
     Retorna o token JWT e define um cookie HttpOnly + SameSite=Strict.
     """
-    user = db.query(Usuario).filter(Usuario.email == form_data.username).first()
-    if not user or not verificar_senha(form_data.password, user.senha_hash):
+    email = form_data.username.strip().lower()
+    user = db.query(Usuario).filter(Usuario.email == email).with_for_update().first()
+    agora = datetime.utcnow()
+    if user and user.bloqueado_ate and user.bloqueado_ate > agora:
+        raise HTTPException(status_code=429, detail="Conta temporariamente bloqueada. Tente novamente em 15 minutos.")
+
+    senha_valida = user is not None and user.ativo and verificar_senha(form_data.password, user.senha_hash)
+    if not senha_valida:
+        if user and user.ativo:
+            user.falhas_login += 1
+            if user.falhas_login >= 5:
+                user.bloqueado_ate = agora + timedelta(minutes=15)
+                db.commit()
+                raise HTTPException(status_code=429, detail="Conta temporariamente bloqueada após tentativas inválidas.")
+            db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="E-mail ou senha incorretos",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    user.falhas_login = 0
+    user.bloqueado_ate = None
+    db.commit()
     access_token = create_access_token(
         data={"sub": user.email, "role": user.role, "nome": user.nome}
     )
@@ -307,8 +316,6 @@ async def login(request: Request, response: Response, form_data: OAuth2PasswordR
     )
     logger.info(f"Login realizado com sucesso por: {user.email}")
     return {
-        "access_token": access_token,
-        "token_type": "bearer",
         "role": user.role,
         "nome": user.nome,
         "email": user.email,
