@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertCircle, CalendarDays, ClipboardList, Loader, Plus, RefreshCw } from 'lucide-react';
+import { AlertCircle, CalendarDays, ClipboardList, FileText, Loader, Plus, RefreshCw } from 'lucide-react';
 import { apiFetch } from '../auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -34,6 +34,26 @@ export default function OrdensAplicacao({ onNovaOrdem }) {
   useEffect(() => {
     carregarOrdens();
   }, []);
+
+  const baixarPdf = async (ordemId) => {
+    try {
+      const response = await apiFetch(`${API_URL}/api/ordens-aplicacao/${ordemId}/pdf`);
+      if (!response.ok) {
+        throw new Error('Não foi possível gerar o PDF desta ordem.');
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ordem-aplicacao-${ordemId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err.message || 'Erro ao baixar PDF.');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -101,6 +121,7 @@ export default function OrdensAplicacao({ onNovaOrdem }) {
                   <th className="px-5 py-3 font-semibold">Data</th>
                   <th className="px-5 py-3 font-semibold">Máquina</th>
                   <th className="px-5 py-3 font-semibold">Status</th>
+                  <th className="px-5 py-3 font-semibold text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -123,6 +144,17 @@ export default function OrdensAplicacao({ onNovaOrdem }) {
                       <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold">
                         Criada
                       </span>
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      <button
+                        type="button"
+                        onClick={() => baixarPdf(ordem.id)}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 border border-emerald-700 text-emerald-800 rounded-lg hover:bg-emerald-50 transition"
+                        title={`Baixar PDF da ordem ${ordem.id}`}
+                      >
+                        <FileText className="w-4 h-4" aria-hidden="true" />
+                        Baixar PDF
+                      </button>
                     </td>
                   </tr>
                 ))}

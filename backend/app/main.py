@@ -119,6 +119,7 @@ async def startup():
     init_db()
     criar_categorias_iniciais()
     criar_usuarios_iniciais()
+    criar_dados_demonstracao()
     logger.info("Database initialized")
 
 
@@ -176,6 +177,80 @@ def criar_usuarios_iniciais():
     except Exception as e:
         db.rollback()
         logger.error(f"Erro ao criar usuários iniciais: {e}")
+    finally:
+        db.close()
+
+
+def criar_dados_demonstracao():
+    """Popula um banco vazio com dados mínimos para apresentação e testes."""
+    db = next(get_db())
+    try:
+        if any((
+            db.query(Safra).count(),
+            db.query(Produto).count(),
+            db.query(FluxoCaixa).count(),
+            db.query(OrdemAplicacao).count(),
+        )):
+            return
+
+        categoria = db.query(Categoria).filter(Categoria.nome == "Defensivos").first()
+        if not categoria:
+            categoria = Categoria(nome="Defensivos")
+            db.add(categoria)
+            db.flush()
+
+        fornecedor = db.query(Fornecedor).filter(Fornecedor.nome == "Fornecedor Demo Agro-BI").first()
+        if not fornecedor:
+            fornecedor = Fornecedor(nome="Fornecedor Demo Agro-BI")
+            db.add(fornecedor)
+            db.flush()
+
+        produtos = [
+            Produto(nome="Herbicida Demo", categoria_id=categoria.id, fornecedor_id=fornecedor.id, estoque_atual=1000, estoque_minimo=100, preco_custo=80, preco_venda=110, unidade_medida="Litro"),
+            Produto(nome="Fungicida Demo", categoria_id=categoria.id, fornecedor_id=fornecedor.id, estoque_atual=800, estoque_minimo=80, preco_custo=95, preco_venda=130, unidade_medida="Litro"),
+            Produto(nome="Inseticida Demo", categoria_id=categoria.id, fornecedor_id=fornecedor.id, estoque_atual=600, estoque_minimo=60, preco_custo=70, preco_venda=98, unidade_medida="Litro"),
+            Produto(nome="Adjuvante Demo", categoria_id=categoria.id, fornecedor_id=fornecedor.id, estoque_atual=400, estoque_minimo=40, preco_custo=25, preco_venda=38, unidade_medida="Litro"),
+        ]
+        db.add_all(produtos)
+
+        safras = [
+            Safra(nome_safra="Safra Demo 2026 - Soja", cultura="Soja", data_inicio=date(2026, 1, 10), data_fim=None, hectares_plantados=250, sacas_produzidas=None, custo_total_acumulado=45000),
+            Safra(nome_safra="Safra Demo 2026 - Milho", cultura="Milho", data_inicio=date(2026, 2, 15), data_fim=None, hectares_plantados=180, sacas_produzidas=None, custo_total_acumulado=32000),
+        ]
+        db.add_all(safras)
+        db.add_all([
+            FluxoCaixa(tipo="Receita", valor=85000, categoria_financeira="Venda de grãos", descricao="Venda demonstrativa de soja", data=date(2026, 7, 10)),
+            FluxoCaixa(tipo="Despesa", valor=18000, categoria_financeira="Insumos", descricao="Compra demonstrativa de defensivos", data=date(2026, 7, 12)),
+            FluxoCaixa(tipo="Despesa", valor=9500, categoria_financeira="Manutenção", descricao="Manutenção demonstrativa de máquinas", data=date(2026, 7, 20)),
+        ])
+        db.flush()
+
+        ordem = OrdemAplicacao(
+            fazenda="Fazenda Demo Norte",
+            cultura="Soja",
+            variedade="BMX Demo",
+            data_recomendacao=date(2026, 8, 1),
+            data_maxima_aplicacao=date(2026, 8, 25),
+            tipo_maquina="Pulverizador",
+            operador="Operador Demo",
+            modelo_maquina="Pulverizador 2000 L",
+            capacidade_tanque_l=2000,
+            vazao_l_ha=100,
+            pressao_bar=3,
+            velocidade_kmh=12,
+            bico="11002",
+            area_total_ha=100,
+        )
+        db.add(ordem)
+        db.flush()
+        item = ItemOrdemAplicacao(ordem_id=ordem.id, produto_id=produtos[0].id, dose_ha=2, quantidade_total=200)
+        produtos[0].estoque_atual -= item.quantidade_total
+        db.add(item)
+        db.commit()
+        logger.info("Dados demonstrativos criados")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Erro ao criar dados demonstrativos: {e}")
     finally:
         db.close()
 
@@ -710,6 +785,50 @@ async def listar_ordens_aplicacao(
 ):
     """Lista as ordens mais recentes para acompanhamento operacional."""
     return db.query(OrdemAplicacao).order_by(OrdemAplicacao.created_at.desc()).all()
+
+
+@app.get("/api/movimentacoes-estoque", response_model=List[schemas.MovimentacaoEstoqueResponse])
+async def listar_movimentacoes_estoque(
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_user),
+):
+    """Consolida compras como entradas e ordens de aplicação como saídas."""
+    movimentacoes = []
+    compras = (
+        db.query(ItemCompra, Compra, Produto)
+        .join(Compra, ItemCompra.compra_id == Compra.id)
+        .join(Produto, ItemCompra.produto_id == Produto.id)
+        .all()
+    )
+    for item, compra, produto in compras:
+        movimentacoes.append({
+            "id": item.id,
+            "tipo": "ENTRADA",
+            "produto_id": produto.id,
+            "produto_nome": produto.nome,
+            "quantidade": item.quantidade,
+            "data": compra.created_at,
+            "referencia": f"Compra #{compra.id}",
+        })
+
+    itens_ordem = (
+        db.query(ItemOrdemAplicacao, OrdemAplicacao, Produto)
+        .join(OrdemAplicacao, ItemOrdemAplicacao.ordem_id == OrdemAplicacao.id)
+        .join(Produto, ItemOrdemAplicacao.produto_id == Produto.id)
+        .all()
+    )
+    for item, ordem, produto in itens_ordem:
+        movimentacoes.append({
+            "id": item.id,
+            "tipo": "SAIDA",
+            "produto_id": produto.id,
+            "produto_nome": produto.nome,
+            "quantidade": item.quantidade_total,
+            "data": ordem.created_at,
+            "referencia": f"Ordem de aplicação #{ordem.id}",
+        })
+
+    return sorted(movimentacoes, key=lambda item: item["data"] or datetime.min, reverse=True)
 
 
 @app.post("/api/ordens-aplicacao", response_model=schemas.OrdemAplicacaoResponse, status_code=status.HTTP_201_CREATED)

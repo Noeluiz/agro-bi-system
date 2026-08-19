@@ -269,6 +269,17 @@ class OrdemAplicacaoResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+class MovimentacaoEstoqueResponse(BaseModel):
+    id: int
+    tipo: str
+    produto_id: int
+    produto_nome: str
+    quantidade: Decimal
+    data: datetime
+    referencia: str
+
+
 # Safra Schemas
 class SafraBase(BaseModel):
     nome_safra: str

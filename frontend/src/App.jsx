@@ -14,6 +14,7 @@ import Safras from './components/Safras';
 import DetalhesSafra from './components/DetalhesSafra';
 import OrdensAplicacao from './components/OrdensAplicacao';
 import NovaOrdemAplicacao from './components/NovaOrdemAplicacao';
+import Movimentacoes from './components/Movimentacoes';
 import { getRole, getUserName, isAuthenticated, logout } from './auth';
 
 function Sistema({ role, userName, onLogout }) {
@@ -62,6 +63,8 @@ function Sistema({ role, userName, onLogout }) {
         return ordemView === 'create'
           ? <NovaOrdemAplicacao onBack={() => setOrdemView('list')} onCreated={() => setOrdemView('list')} />
           : <OrdensAplicacao onNovaOrdem={() => setOrdemView('create')} />;
+      case 'movimentacoes':
+        return <Movimentacoes />;
       case 'financeiro':
         return role === 'ADMIN' ? <Financeiro /> : <AcessoNegado />;
       case 'rh':
