@@ -20,16 +20,8 @@ export const formatarDataBR = (value, incluirHora = false) => {
     : { dateStyle: 'short' });
 };
 
-export const exportarRelatorioCsv = ({ nomeArquivo, titulo, cabecalhos, linhas }) => {
-  const agora = new Date();
-  const dataGeracao = formatarDataBR(agora, true);
-  const capa = [
-    ['Agro-BI System', titulo, ''],
-    [`Relatório gerado em: ${dataGeracao}`, '', ''],
-    ['---------------------', '', ''],
-  ];
+export const exportarRelatorioCsv = ({ nomeArquivo, cabecalhos, linhas }) => {
   const conteudo = [
-    ...capa,
     cabecalhos,
     ...linhas,
   ].map((linha) => linha.map(escapeCsv).join(';')).join('\r\n');

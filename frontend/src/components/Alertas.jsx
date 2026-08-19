@@ -105,7 +105,6 @@ export default function Alertas() {
 
       exportarRelatorioCsv({
         nomeArquivo: `alertas_${new Date().toISOString().slice(0, 10)}.csv`,
-        titulo: 'Relatório de Alertas de Estoque',
         cabecalhos: headers,
         linhas: rows,
       });

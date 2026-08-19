@@ -103,7 +103,6 @@ export default function Financeiro() {
 
       exportarRelatorioCsv({
         nomeArquivo: `financeiro_${new Date().toISOString().slice(0, 10)}.csv`,
-        titulo: 'Relatório Financeiro',
         cabecalhos: headers,
         linhas: rows,
       });

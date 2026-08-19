@@ -167,7 +167,6 @@ export default function Estoque({ role }) {
 
     exportarRelatorioCsv({
       nomeArquivo: `estoque_${new Date().toISOString().slice(0, 10)}.csv`,
-      titulo: 'Relatório de Estoque',
       cabecalhos: headers,
       linhas: rows,
     });
