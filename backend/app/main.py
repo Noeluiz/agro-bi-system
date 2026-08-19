@@ -182,18 +182,10 @@ def criar_usuarios_iniciais():
 
 
 def criar_dados_demonstracao():
-    """Popula um banco vazio com dados mínimos para apresentação e testes."""
+    """Garante dados mínimos de demonstração sem duplicar dados existentes."""
     db = next(get_db())
     try:
-        if any((
-            db.query(Safra).count(),
-            db.query(Produto).count(),
-            db.query(FluxoCaixa).count(),
-            db.query(OrdemAplicacao).count(),
-        )):
-            return
-
-        categoria = db.query(Categoria).filter(Categoria.nome == "Defensivos").first()
+        categoria = db.query(Categoria).filter(Categoria.nome.in_(["Defensivos", "Defensivos Agrícolas"])).first()
         if not categoria:
             categoria = Categoria(nome="Defensivos")
             db.add(categoria)
@@ -205,25 +197,44 @@ def criar_dados_demonstracao():
             db.add(fornecedor)
             db.flush()
 
-        produtos = [
-            Produto(nome="Herbicida Demo", categoria_id=categoria.id, fornecedor_id=fornecedor.id, estoque_atual=1000, estoque_minimo=100, preco_custo=80, preco_venda=110, unidade_medida="Litro"),
-            Produto(nome="Fungicida Demo", categoria_id=categoria.id, fornecedor_id=fornecedor.id, estoque_atual=800, estoque_minimo=80, preco_custo=95, preco_venda=130, unidade_medida="Litro"),
-            Produto(nome="Inseticida Demo", categoria_id=categoria.id, fornecedor_id=fornecedor.id, estoque_atual=600, estoque_minimo=60, preco_custo=70, preco_venda=98, unidade_medida="Litro"),
-            Produto(nome="Adjuvante Demo", categoria_id=categoria.id, fornecedor_id=fornecedor.id, estoque_atual=400, estoque_minimo=40, preco_custo=25, preco_venda=38, unidade_medida="Litro"),
+        produtos = []
+        produtos_demo = [
+            ("Herbicida Demo", 1000, 100, 80, 110),
+            ("Fungicida Demo", 800, 80, 95, 130),
+            ("Inseticida Demo", 600, 60, 70, 98),
+            ("Adjuvante Demo", 400, 40, 25, 38),
         ]
-        db.add_all(produtos)
+        for nome, estoque, minimo, custo, venda in produtos_demo:
+            produto = db.query(Produto).filter(Produto.nome == nome).first()
+            if not produto:
+                produto = Produto(nome=nome, categoria_id=categoria.id, fornecedor_id=fornecedor.id, estoque_atual=estoque, estoque_minimo=minimo, preco_custo=custo, preco_venda=venda, unidade_medida="Litro")
+                db.add(produto)
+                db.flush()
+            produtos.append(produto)
 
-        safras = [
-            Safra(nome_safra="Safra Demo 2026 - Soja", cultura="Soja", data_inicio=date(2026, 1, 10), data_fim=None, hectares_plantados=250, sacas_produzidas=None, custo_total_acumulado=45000),
-            Safra(nome_safra="Safra Demo 2026 - Milho", cultura="Milho", data_inicio=date(2026, 2, 15), data_fim=None, hectares_plantados=180, sacas_produzidas=None, custo_total_acumulado=32000),
+        safras_demo = [
+            ("Safra Demo 2026 - Soja", "Soja", date(2026, 1, 10), 250, 45000),
+            ("Safra Demo 2026 - Milho", "Milho", date(2026, 2, 15), 180, 32000),
         ]
-        db.add_all(safras)
-        db.add_all([
-            FluxoCaixa(tipo="Receita", valor=85000, categoria_financeira="Venda de grãos", descricao="Venda demonstrativa de soja", data=date(2026, 7, 10)),
-            FluxoCaixa(tipo="Despesa", valor=18000, categoria_financeira="Insumos", descricao="Compra demonstrativa de defensivos", data=date(2026, 7, 12)),
-            FluxoCaixa(tipo="Despesa", valor=9500, categoria_financeira="Manutenção", descricao="Manutenção demonstrativa de máquinas", data=date(2026, 7, 20)),
-        ])
+        for nome, cultura, inicio, hectares, custo in safras_demo:
+            if not db.query(Safra).filter(Safra.nome_safra == nome).first():
+                db.add(Safra(nome_safra=nome, cultura=cultura, data_inicio=inicio, data_fim=None, hectares_plantados=hectares, sacas_produzidas=None, custo_total_acumulado=custo))
+
+        fluxos_demo = [
+            ("Receita", 85000, "Venda de grãos", "Venda demonstrativa de soja", date(2026, 7, 10)),
+            ("Despesa", 18000, "Insumos", "Compra demonstrativa de defensivos", date(2026, 7, 12)),
+            ("Despesa", 9500, "Manutenção", "Manutenção demonstrativa de máquinas", date(2026, 7, 20)),
+        ]
+        for tipo, valor, categoria_financeira, descricao, data_lancamento in fluxos_demo:
+            if not db.query(FluxoCaixa).filter(FluxoCaixa.descricao == descricao).first():
+                db.add(FluxoCaixa(tipo=tipo, valor=valor, categoria_financeira=categoria_financeira, descricao=descricao, data=data_lancamento))
         db.flush()
+
+        ordem = db.query(OrdemAplicacao).filter(OrdemAplicacao.fazenda == "Fazenda Demo Norte").first()
+        if ordem:
+            db.commit()
+            logger.info("Dados demonstrativos já existentes; itens ausentes foram completados")
+            return
 
         ordem = OrdemAplicacao(
             fazenda="Fazenda Demo Norte",

@@ -15,9 +15,10 @@ import DetalhesSafra from './components/DetalhesSafra';
 import OrdensAplicacao from './components/OrdensAplicacao';
 import NovaOrdemAplicacao from './components/NovaOrdemAplicacao';
 import Movimentacoes from './components/Movimentacoes';
-import { getRole, getUserName, isAuthenticated, logout } from './auth';
+import { getRole, getUserEmail, getUserName, isAuthenticated, logout } from './auth';
+import OnboardingTour from './components/OnboardingTour';
 
-function Sistema({ role, userName, onLogout }) {
+function Sistema({ role, userName, userEmail, onLogout }) {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -98,6 +99,7 @@ function Sistema({ role, userName, onLogout }) {
       />
 
       <main className="flex-1 overflow-auto">
+        <OnboardingTour userEmail={userEmail} />
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg m-4">
             <div className="flex items-center">
@@ -157,11 +159,13 @@ function App() {
   const [autenticado, setAutenticado] = useState(isAuthenticated());
   const [role, setRole] = useState(getRole());
   const [userName, setUserName] = useState(getUserName());
+  const [userEmail, setUserEmail] = useState(getUserEmail());
 
   const handleLogin = (dados) => {
     setAutenticado(true);
     setRole(dados.role);
     setUserName(dados.nome);
+    setUserEmail(dados.email);
   };
 
   const handleLogout = async () => {
@@ -169,6 +173,7 @@ function App() {
     setAutenticado(false);
     setRole('GERENTE');
     setUserName('');
+    setUserEmail('');
   };
 
   return (
@@ -181,7 +186,7 @@ function App() {
       <Route path="/privacidade" element={<Privacidade />} />
       <Route
         path="/dashboard"
-        element={autenticado ? <Sistema role={role} userName={userName} onLogout={handleLogout} /> : <Navigate to="/login" replace />}
+        element={autenticado ? <Sistema role={role} userName={userName} userEmail={userEmail} onLogout={handleLogout} /> : <Navigate to="/login" replace />}
       />
       <Route path="*" element={<NotFound autenticado={autenticado} />} />
     </Routes>
