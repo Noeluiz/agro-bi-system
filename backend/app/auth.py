@@ -28,13 +28,8 @@ ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 COOKIE_NAME = os.getenv("AUTH_COOKIE_NAME", "agro_bi_token")
 IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").lower() == "production"
-COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true" if IS_PRODUCTION else "false").lower() == "true"
-COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "strict")
-
-if IS_PRODUCTION and not COOKIE_SECURE:
-    raise RuntimeError("COOKIE_SECURE=true é obrigatório em produção")
-if IS_PRODUCTION and COOKIE_SAMESITE.lower() != "strict":
-    raise RuntimeError("COOKIE_SAMESITE=strict é obrigatório em produção")
+COOKIE_SECURE = True if IS_PRODUCTION else os.getenv("COOKIE_SECURE", "false").lower() == "true"
+COOKIE_SAMESITE = "none" if IS_PRODUCTION else os.getenv("COOKIE_SAMESITE", "strict")
 
 # Contexto de hash de senha usando bcrypt via passlib
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

@@ -78,7 +78,9 @@ origins_padrao = [
     "https://agro-bi-system-r30kftf2v-nlp-gdevs.vercel.app",
     "https://agro-bi-system-jy9cjtz6v-nlp-gdevs.vercel.app"
 ]
-origins = [origem.strip() for origem in os.getenv("CORS_ORIGINS", ",".join(origins_padrao)).split(",") if origem.strip()]
+origins_configuradas = [origem.strip() for origem in os.getenv("CORS_ORIGINS", "").split(",") if origem.strip()]
+# Mantém os domínios oficiais mesmo quando o ambiente fornece apenas origens locais.
+origins = list(dict.fromkeys(origins_padrao + origins_configuradas))
 if "*" in origins:
     raise RuntimeError("CORS_ORIGINS não pode conter wildcard (*)")
 
