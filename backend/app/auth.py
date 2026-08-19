@@ -27,7 +27,11 @@ if not SECRET_KEY:
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 COOKIE_NAME = os.getenv("AUTH_COOKIE_NAME", "agro_bi_token")
-IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").lower() == "production"
+IS_PRODUCTION = (
+    os.getenv("ENVIRONMENT", "").lower() == "production"
+    or bool(os.getenv("RAILWAY_ENVIRONMENT_NAME"))
+    or bool(os.getenv("RAILWAY_SERVICE_NAME"))
+)
 COOKIE_SECURE = True if IS_PRODUCTION else os.getenv("COOKIE_SECURE", "false").lower() == "true"
 COOKIE_SAMESITE = "none" if IS_PRODUCTION else os.getenv("COOKIE_SAMESITE", "strict")
 

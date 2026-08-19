@@ -103,7 +103,7 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-    if os.getenv("ENABLE_HSTS", "false").lower() == "true" or os.getenv("ENVIRONMENT", "development").lower() == "production":
+    if os.getenv("ENABLE_HSTS", "false").lower() == "true" or os.getenv("ENVIRONMENT", "").lower() == "production" or os.getenv("RAILWAY_SERVICE_NAME"):
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
