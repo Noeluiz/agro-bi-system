@@ -27,6 +27,7 @@ function Sistema({ role, userName, userEmail, onLogout }) {
   const [error] = useState(null);
   const [safraId, setSafraId] = useState(null);
   const [ordemView, setOrdemView] = useState('list');
+  const [onboardingTarget, setOnboardingTarget] = useState(null);
 
   useEffect(() => {
     setLoading(false);
@@ -57,15 +58,15 @@ function Sistema({ role, userName, userEmail, onLogout }) {
       case 'dashboard':
         return <Dashboard />;
       case 'estoque':
-        return <Estoque />;
+        return <Estoque role={role} />;
       case 'alertas':
         return <Alertas />;
       case 'safras':
-        return <Safras onSelectSafra={handleSelectSafra} />;
+        return <Safras role={role} onSelectSafra={handleSelectSafra} />;
       case 'ordens-aplicacao':
         return ordemView === 'create'
           ? <NovaOrdemAplicacao onBack={() => setOrdemView('list')} onCreated={() => setOrdemView('list')} />
-          : <OrdensAplicacao onNovaOrdem={() => setOrdemView('create')} />;
+          : <OrdensAplicacao role={role} onNovaOrdem={() => setOrdemView('create')} />;
       case 'movimentacoes':
         return <Movimentacoes />;
       case 'usuarios':
@@ -100,10 +101,11 @@ function Sistema({ role, userName, userEmail, onLogout }) {
         onNavigate={handleNavigate}
         mobileOpen={mobileMenuOpen}
         onCloseMenu={() => setMobileMenuOpen(false)}
+        onboardingTarget={onboardingTarget}
       />
 
       <main className="flex-1 overflow-auto">
-        <OnboardingTour userEmail={userEmail} />
+        <OnboardingTour userEmail={userEmail} onNavigate={handleNavigate} onHighlight={setOnboardingTarget} />
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg m-4">
             <div className="flex items-center">

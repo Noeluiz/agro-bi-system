@@ -12,6 +12,7 @@ from decimal import Decimal
 from io import BytesIO
 from datetime import date, datetime, timedelta
 from typing import Optional, List
+from xml.sax.saxutils import escape as escape_xml
 import os
 import logging
 import traceback
@@ -597,6 +598,35 @@ async def atualizar_produto(
         db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao atualizar produto")
 
+
+@app.delete("/api/produtos/{produto_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def deletar_produto(
+    produto_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_admin),
+):
+    """Exclui um produto apenas quando não há registros históricos vinculados."""
+    produto = db.query(Produto).filter(Produto.id == produto_id).first()
+    if not produto:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+    if any((
+        db.query(ItemCompra).filter(ItemCompra.produto_id == produto_id).first(),
+        db.query(AplicacaoInsumo).filter(AplicacaoInsumo.produto_id == produto_id).first(),
+        db.query(ItemOrdemAplicacao).filter(ItemOrdemAplicacao.produto_id == produto_id).first(),
+        db.query(AlertaEstoque).filter(AlertaEstoque.produto_id == produto_id).first(),
+    )):
+        raise HTTPException(status_code=409, detail="Produto possui movimentações ou registros vinculados e não pode ser excluído")
+    try:
+        nome = produto.nome
+        db.delete(produto)
+        db.commit()
+        registrar_log(current_user.id, "DELETAR_PRODUTO", f"Produto #{produto_id}: {nome}")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Erro ao deletar produto: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao deletar produto")
+    return None
+
 # ============= FUNCIONARIOS (RH - somente ADMIN) =============
 @app.get("/api/funcionarios", response_model=List[schemas.FuncionarioResponse])
 async def listar_funcionarios(
@@ -736,6 +766,26 @@ async def criar_fluxo_caixa(
         raise HTTPException(status_code=500, detail="Erro ao criar fluxo de caixa")
 
 
+@app.delete("/api/fluxo-caixa/{fluxo_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def deletar_fluxo_caixa(
+    fluxo_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_admin),
+):
+    fluxo = db.query(FluxoCaixa).filter(FluxoCaixa.id == fluxo_id).first()
+    if not fluxo:
+        raise HTTPException(status_code=404, detail="Lançamento não encontrado")
+    try:
+        db.delete(fluxo)
+        db.commit()
+        registrar_log(current_user.id, "DELETAR_FLUXO_CAIXA", f"Lançamento #{fluxo_id}")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Erro ao deletar fluxo de caixa: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao deletar lançamento")
+    return None
+
+
 # ============= COMPRAS (Financeiro/Estoque - somente ADMIN) =============
 @app.post("/api/compras", response_model=schemas.CompraResponse, status_code=status.HTTP_201_CREATED)
 async def criar_compra(
@@ -832,6 +882,29 @@ async def criar_safra(
         logger.error(f"Erro ao criar safra: {e}")
         db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao criar safra")
+
+
+@app.delete("/api/safras/{safra_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def deletar_safra(
+    safra_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_admin),
+):
+    safra = db.query(Safra).filter(Safra.id == safra_id).first()
+    if not safra:
+        raise HTTPException(status_code=404, detail="Safra não encontrada")
+    if db.query(AplicacaoInsumo).filter(AplicacaoInsumo.safra_id == safra_id).first():
+        raise HTTPException(status_code=409, detail="Safra possui aplicações vinculadas e não pode ser excluída")
+    try:
+        nome = safra.nome_safra
+        db.delete(safra)
+        db.commit()
+        registrar_log(current_user.id, "DELETAR_SAFRA", f"Safra #{safra_id}: {nome}")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Erro ao deletar safra: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao deletar safra")
+    return None
 
 
 # ============= APLICAÇÕES DE INSUMOS =============
@@ -999,6 +1072,31 @@ async def criar_ordem_aplicacao(
         raise HTTPException(status_code=500, detail="Erro ao criar ordem de aplicação")
 
 
+@app.delete("/api/ordens-aplicacao/{ordem_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def deletar_ordem_aplicacao(
+    ordem_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_admin),
+):
+    """Exclui uma ordem e devolve ao estoque as quantidades reservadas."""
+    ordem = db.query(OrdemAplicacao).filter(OrdemAplicacao.id == ordem_id).with_for_update().first()
+    if not ordem:
+        raise HTTPException(status_code=404, detail="Ordem de aplicação não encontrada")
+    try:
+        for item in ordem.itens:
+            produto = db.query(Produto).filter(Produto.id == item.produto_id).with_for_update().first()
+            if produto:
+                produto.estoque_atual += item.quantidade_total
+        db.delete(ordem)
+        db.commit()
+        registrar_log(current_user.id, "DELETAR_ORDEM_APLICACAO", f"Ordem #{ordem_id} excluída e estoque restaurado")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Erro ao deletar ordem de aplicação: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao deletar ordem de aplicação")
+    return None
+
+
 @app.get("/api/ordens-aplicacao/{ordem_id}/pdf")
 async def gerar_pdf_ordem_aplicacao(
     ordem_id: int,
@@ -1012,7 +1110,7 @@ async def gerar_pdf_ordem_aplicacao(
 
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import cm
     from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
@@ -1023,29 +1121,59 @@ async def gerar_pdf_ordem_aplicacao(
         [{"produto_id": item.produto_id, "dose_ha": item.dose_ha} for item in ordem.itens],
     )
     buffer = BytesIO()
-    documento = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5 * cm, leftMargin=1.5 * cm)
+    verde = colors.HexColor("#047857")
+    documento = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=1.5 * cm,
+        leftMargin=1.5 * cm,
+        topMargin=2.2 * cm,
+        bottomMargin=1.8 * cm,
+        title=f"Ordem de Aplicação #{ordem.id}",
+        author="Agro-BI",
+    )
     estilos = getSampleStyleSheet()
+    estilo_titulo = ParagraphStyle("TituloAgro", parent=estilos["Title"], textColor=verde, fontSize=20, leading=24, spaceAfter=4)
+    estilo_secao = ParagraphStyle("SecaoAgro", parent=estilos["Heading2"], textColor=verde, fontSize=12, leading=15, spaceBefore=8, spaceAfter=8)
+    estilo_normal = ParagraphStyle("NormalAgro", parent=estilos["Normal"], fontSize=9, leading=12)
+
+    def texto(value):
+        return escape_xml(str(value))
+
+    def rodape(canvas, doc):
+        canvas.saveState()
+        largura, altura = A4
+        canvas.setStrokeColor(colors.HexColor("#d1d5db"))
+        canvas.line(1.5 * cm, 1.25 * cm, largura - 1.5 * cm, 1.25 * cm)
+        canvas.setFont("Helvetica", 8)
+        canvas.setFillColor(colors.HexColor("#64748b"))
+        canvas.drawString(1.5 * cm, 0.8 * cm, f"Agro-BI | Ordem #{ordem.id} | {date.today().strftime('%d/%m/%Y')}")
+        pagina = f"Página {doc.page}"
+        canvas.drawRightString(largura - 1.5 * cm, 0.8 * cm, pagina)
+        canvas.restoreState()
+
     elementos = [
-        Paragraph("ORDEM DE APLICAÇÃO", estilos["Title"]),
-        Paragraph(f"Ordem #{ordem.id} | Emitida em {date.today().strftime('%d/%m/%Y')}", estilos["Normal"]),
+        Paragraph("AGRO-BI", estilo_titulo),
+        Paragraph("ORDEM DE APLICAÇÃO", ParagraphStyle("SubtituloAgro", parent=estilo_secao, fontSize=14, spaceBefore=0)),
+        Paragraph(f"Documento #{ordem.id} | Emitido em {date.today().strftime('%d/%m/%Y')}", estilo_normal),
         Spacer(1, 0.35 * cm),
     ]
     dados = [
-        ["Fazenda", ordem.fazenda, "Cultura", f"{ordem.cultura} - {ordem.variedade}"],
+        ["Fazenda", texto(ordem.fazenda), "Cultura", texto(f"{ordem.cultura} - {ordem.variedade}")],
         ["Recomendação", ordem.data_recomendacao.strftime("%d/%m/%Y"), "Aplicar até", ordem.data_maxima_aplicacao.strftime("%d/%m/%Y")],
-        ["Máquina", f"{ordem.tipo_maquina} - {ordem.modelo_maquina}", "Operador", ordem.operador],
-        ["Área", f"{ordem.area_total_ha} ha", "Bico / pressão", f"{ordem.bico} / {ordem.pressao_bar} bar"],
+        ["Máquina", texto(f"{ordem.tipo_maquina} - {ordem.modelo_maquina}"), "Operador", texto(ordem.operador)],
+        ["Área", f"{ordem.area_total_ha} ha", "Bico / pressão", texto(f"{ordem.bico} / {ordem.pressao_bar} bar")],
         ["Vazão / velocidade", f"{ordem.vazao_l_ha} L/ha / {ordem.velocidade_kmh} km/h", "Tanque", f"{ordem.capacidade_tanque_l} L"],
     ]
     tabela = Table(dados, colWidths=[3.2 * cm, 6.2 * cm, 3.2 * cm, 5.0 * cm])
     tabela.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#e7f0e8")),
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#ecfdf5")),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("PADDING", (0, 0), (-1, -1), 6),
     ]))
-    elementos.extend([tabela, Spacer(1, 0.35 * cm), Paragraph("DIVISÃO DE TANQUES", estilos["Heading2"])])
+    elementos.extend([tabela, Spacer(1, 0.35 * cm), Paragraph("DIVISÃO DE TANQUES", estilo_secao)])
     linhas_tanques = [["Tanques cheios", "Área por tanque", "Tanque parcial", "Volume parcial"]]
     linhas_tanques.append([
         str(calculo["total_tanques_cheios"]),
@@ -1055,20 +1183,20 @@ async def gerar_pdf_ordem_aplicacao(
     ])
     tabela_tanques = Table(linhas_tanques, colWidths=[4.1 * cm] * 4)
     tabela_tanques.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2f6f44")),
+        ("BACKGROUND", (0, 0), (-1, 0), verde),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("PADDING", (0, 0), (-1, -1), 6),
     ]))
-    elementos.extend([tabela_tanques, Spacer(1, 0.35 * cm), Paragraph("PRODUTOS E DOSES", estilos["Heading2"])])
+    elementos.extend([tabela_tanques, Spacer(1, 0.35 * cm), Paragraph("PRODUTOS E DOSES", estilo_secao)])
     linhas_produtos = [["Produto", "Dose/ha", "Quantidade total", "Dose tanque cheio", "Dose parcial"]]
     calculos_produtos = {item["produto_id"]: item for item in calculo["produtos"]}
     for item in ordem.itens:
         produto = db.query(Produto).filter(Produto.id == item.produto_id).first()
         produto_calculo = calculos_produtos[item.produto_id]
         linhas_produtos.append([
-            produto.nome if produto else str(item.produto_id),
+            texto(produto.nome if produto else str(item.produto_id)),
             f"{item.dose_ha}",
             f"{item.quantidade_total}",
             f"{produto_calculo['dose_por_tanque_cheio']:.2f}",
@@ -1076,8 +1204,9 @@ async def gerar_pdf_ordem_aplicacao(
         ])
     tabela_produtos = Table(linhas_produtos, colWidths=[5.2 * cm, 2.3 * cm, 3.0 * cm, 3.2 * cm, 3.2 * cm])
     tabela_produtos.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2f6f44")),
+        ("BACKGROUND", (0, 0), (-1, 0), verde),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f0fdf4")]),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
         ("PADDING", (0, 0), (-1, -1), 5),
@@ -1085,10 +1214,10 @@ async def gerar_pdf_ordem_aplicacao(
     elementos.extend([
         tabela_produtos,
         Spacer(1, 0.5 * cm),
-        Paragraph("ATENÇÃO: utilizar EPI completo conforme rótulo e bula de cada produto.", estilos["Heading3"]),
-        Paragraph(f"Rastreabilidade: ordem #{ordem.id} | operador: {ordem.operador} | emissão: {datetime.now().strftime('%d/%m/%Y %H:%M')}", estilos["Normal"]),
+        Paragraph("ATENÇÃO: utilizar EPI completo conforme rótulo e bula de cada produto.", ParagraphStyle("AvisoAgro", parent=estilo_secao, textColor=colors.HexColor("#b45309"))),
+        Paragraph(f"Rastreabilidade: ordem #{ordem.id} | operador: {texto(ordem.operador)} | emissão: {datetime.now().strftime('%d/%m/%Y %H:%M')}", estilo_normal),
     ])
-    documento.build(elementos)
+    documento.build(elementos, onFirstPage=rodape, onLaterPages=rodape)
     buffer.seek(0)
     return StreamingResponse(
         buffer,

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, AlertCircle, Edit2, Search } from 'lucide-react';
+import { Plus, AlertCircle, Edit2, Search, Trash2 } from 'lucide-react';
 import CadastroModal from './CadastroModal';
 import LoadingSpinner from './LoadingSpinner';
 import { apiFetch } from '../auth';
@@ -7,7 +7,7 @@ import { formatarMoeda } from '../utils/formatters';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-export default function Estoque() {
+export default function Estoque({ role }) {
   const [produtos, setProdutos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [fornecedores, setFornecedores] = useState([]);
@@ -127,6 +127,21 @@ export default function Estoque() {
     } catch (err) {
       setError('Erro ao atualizar: ' + err.message);
       console.error('Erro:', err);
+    }
+  };
+
+  const handleDeletarProduto = async (produto) => {
+    if (!window.confirm(`Excluir o produto "${produto.nome}"? Essa ação não poderá ser desfeita.`)) return;
+    try {
+      setError('');
+      const response = await apiFetch(`${API_URL}/api/produtos/${produto.id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.detail || 'Erro ao excluir produto.');
+      }
+      setProdutos((current) => current.filter((item) => item.id !== produto.id));
+    } catch (err) {
+      setError(`Erro ao excluir: ${err.message}`);
     }
   };
 
@@ -367,6 +382,15 @@ export default function Estoque() {
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
+                      {role === 'ADMIN' && (
+                        <button
+                          onClick={() => handleDeletarProduto(produto)}
+                          className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition"
+                          title="Excluir produto"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))

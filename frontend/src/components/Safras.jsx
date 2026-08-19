@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { AlertCircle, Plus, ChevronRight, Loader } from 'lucide-react';
+import { AlertCircle, Plus, ChevronRight, Loader, Trash2 } from 'lucide-react';
 import { apiFetch } from '../auth';
 import { formatarMoeda } from '../utils/formatters';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-export default function Safras({ onSelectSafra }) {
+export default function Safras({ onSelectSafra, role }) {
   const [safras, setSafras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -84,6 +84,20 @@ export default function Safras({ onSelectSafra }) {
       }
     } catch (err) {
       setError('Erro ao criar safra: ' + err.message);
+    }
+  };
+
+  const handleDeletarSafra = async (safra) => {
+    if (!window.confirm(`Excluir a safra "${safra.nome_safra}"?`)) return;
+    try {
+      const response = await apiFetch(`${API_URL}/api/safras/${safra.id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.detail || 'Não foi possível excluir a safra.');
+      }
+      setSafras((current) => current.filter((item) => item.id !== safra.id));
+    } catch (err) {
+      setError(`Erro ao excluir safra: ${err.message}`);
     }
   };
 
@@ -210,14 +224,13 @@ export default function Safras({ onSelectSafra }) {
           </div>
         ) : (
           safras.map(safra => (
-            <div
+              <div
               key={safra.id}
-              className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => onSelectSafra(safra.id)}
+              className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 hover:shadow-md transition-shadow"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-4">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-emerald-800">{safra.nome_safra}</h3>
+                  <button type="button" onClick={() => onSelectSafra(safra.id)} className="text-left text-lg font-semibold text-emerald-800 hover:text-emerald-700">{safra.nome_safra}</button>
                   <p className="text-sm text-slate-600 mt-1">
                     Cultura: <span className="font-medium">{safra.cultura}</span>
                   </p>
@@ -227,7 +240,10 @@ export default function Safras({ onSelectSafra }) {
                     <span>💰 {formatarMoeda(safra.custo_total || safra.custo_total_acumulado)}</span>
                   </div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-slate-400" />
+                <div className="flex items-center gap-2">
+                  <ChevronRight className="w-5 h-5 text-slate-400" />
+                  {role === 'ADMIN' && <button type="button" onClick={() => handleDeletarSafra(safra)} className="p-2 rounded-lg text-red-600 hover:bg-red-50" title="Excluir safra"><Trash2 className="w-4 h-4" /></button>}
+                </div>
               </div>
             </div>
           ))

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertCircle, CalendarDays, ClipboardList, FileText, Loader, Plus, RefreshCw } from 'lucide-react';
+import { AlertCircle, CalendarDays, ClipboardList, FileText, Loader, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { apiFetch } from '../auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -9,7 +9,7 @@ const formatarData = (data) => {
   return new Date(`${data}T00:00:00`).toLocaleDateString('pt-BR');
 };
 
-export default function OrdensAplicacao({ onNovaOrdem }) {
+export default function OrdensAplicacao({ onNovaOrdem, role }) {
   const [ordens, setOrdens] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -52,6 +52,20 @@ export default function OrdensAplicacao({ onNovaOrdem }) {
       URL.revokeObjectURL(url);
     } catch (err) {
       setError(err.message || 'Erro ao baixar PDF.');
+    }
+  };
+
+  const deletarOrdem = async (ordem) => {
+    if (!window.confirm(`Excluir a ordem #${ordem.id}? O estoque consumido será restaurado.`)) return;
+    try {
+      const response = await apiFetch(`${API_URL}/api/ordens-aplicacao/${ordem.id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.detail || 'Não foi possível excluir a ordem.');
+      }
+      setOrdens((current) => current.filter((item) => item.id !== ordem.id));
+    } catch (err) {
+      setError(err.message || 'Erro ao excluir ordem.');
     }
   };
 
@@ -155,6 +169,7 @@ export default function OrdensAplicacao({ onNovaOrdem }) {
                         <FileText className="w-4 h-4" aria-hidden="true" />
                         Baixar PDF
                       </button>
+                      {role === 'ADMIN' && <button type="button" onClick={() => deletarOrdem(ordem)} className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition" title="Excluir ordem"><Trash2 className="w-4 h-4" aria-hidden="true" />Excluir</button>}
                     </td>
                   </tr>
                 ))}

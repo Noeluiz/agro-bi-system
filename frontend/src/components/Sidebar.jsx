@@ -8,7 +8,8 @@ export default function Sidebar({
   activeSection,
   onNavigate,
   mobileOpen,
-  onCloseMenu
+  onCloseMenu,
+  onboardingTarget
 }) {
   const isAdmin = role === 'ADMIN';
 
@@ -86,7 +87,9 @@ export default function Sidebar({
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition ${
                   isActive
                     ? 'bg-emerald-700 text-white'
-                    : 'text-slate-600 hover:bg-stone-100'
+                    : onboardingTarget === item.id
+                      ? 'bg-emerald-50 text-emerald-800 ring-2 ring-emerald-400 ring-offset-1 animate-pulse'
+                      : 'text-slate-600 hover:bg-stone-100'
                 }`}
               >
                 <Icon className="w-4 h-4 shrink-0" />
