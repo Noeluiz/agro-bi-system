@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional, List
+from enum import Enum
 
 # ============= AUTH SCHEMAS =============
 
@@ -198,6 +199,72 @@ class AplicacaoInsumoResponse(BaseModel):
     custo_total: Decimal
     data_aplicacao: date
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class TipoMaquina(str, Enum):
+    pulverizador = "Pulverizador"
+    drone = "Drone"
+    aviao = "Avião"
+    costal = "Costal"
+    outro = "Outro"
+
+
+class ItemOrdemAplicacaoCreate(BaseModel):
+    produto_id: int
+    dose_ha: Decimal = Field(gt=0)
+    quantidade_total: Optional[Decimal] = Field(default=None, gt=0)
+
+
+class OrdemAplicacaoCreate(BaseModel):
+    fazenda: str = Field(min_length=1, max_length=150)
+    cultura: str = Field(min_length=1, max_length=50)
+    variedade: str = Field(min_length=1, max_length=100)
+    data_recomendacao: date
+    data_maxima_aplicacao: date
+    tipo_maquina: TipoMaquina
+    operador: str = Field(min_length=1, max_length=150)
+    modelo_maquina: str = Field(min_length=1, max_length=100)
+    capacidade_tanque_l: Decimal = Field(gt=0)
+    vazao_l_ha: Decimal = Field(gt=0)
+    pressao_bar: Decimal = Field(gt=0)
+    velocidade_kmh: Decimal = Field(gt=0)
+    bico: str = Field(min_length=1, max_length=100)
+    area_total_ha: Decimal = Field(gt=0)
+    itens: List[ItemOrdemAplicacaoCreate] = Field(min_length=1)
+
+
+class ItemOrdemAplicacaoResponse(BaseModel):
+    id: int
+    ordem_id: int
+    produto_id: int
+    dose_ha: Decimal
+    quantidade_total: Decimal
+
+    class Config:
+        from_attributes = True
+
+
+class OrdemAplicacaoResponse(BaseModel):
+    id: int
+    fazenda: str
+    cultura: str
+    variedade: str
+    data_recomendacao: date
+    data_maxima_aplicacao: date
+    tipo_maquina: TipoMaquina
+    operador: str
+    modelo_maquina: str
+    capacidade_tanque_l: Decimal
+    vazao_l_ha: Decimal
+    pressao_bar: Decimal
+    velocidade_kmh: Decimal
+    bico: str
+    area_total_ha: Decimal
+    created_at: datetime
+    itens: List[ItemOrdemAplicacaoResponse]
 
     class Config:
         from_attributes = True

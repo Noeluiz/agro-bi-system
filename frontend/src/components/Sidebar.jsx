@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogOut, LayoutDashboard, Package, Wallet, Users, Bell, User, X, Leaf } from 'lucide-react';
+import { LogOut, LayoutDashboard, Package, Wallet, Users, Bell, User, X, Leaf, ClipboardList } from 'lucide-react';
 
 export default function Sidebar({
   role,
@@ -17,6 +17,7 @@ export default function Sidebar({
     { id: 'estoque', label: 'Estoque', icon: Package, show: true },
     { id: 'alertas', label: 'Alertas', icon: Bell, show: true },
     { id: 'safras', label: 'Safras', icon: Leaf, show: true },
+    { id: 'ordens-aplicacao', label: 'Ordens de Aplicação', icon: ClipboardList, show: true },
     { id: 'financeiro', label: 'Financeiro', icon: Wallet, show: isAdmin },
     { id: 'rh', label: 'Recursos Humanos', icon: Users, show: isAdmin },
   ];

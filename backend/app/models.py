@@ -173,6 +173,42 @@ class AplicacaoInsumo(Base):
     safra = relationship("Safra", back_populates="aplicacoes")
     produto = relationship("Produto", back_populates="aplicacoes")
 
+
+class OrdemAplicacao(Base):
+    __tablename__ = "ordens_aplicacao"
+
+    id = Column(Integer, primary_key=True, index=True)
+    fazenda = Column(String(150), nullable=False)
+    cultura = Column(String(50), nullable=False)
+    variedade = Column(String(100), nullable=False)
+    data_recomendacao = Column(Date, nullable=False)
+    data_maxima_aplicacao = Column(Date, nullable=False)
+    tipo_maquina = Column(String(50), nullable=False)
+    operador = Column(String(150), nullable=False)
+    modelo_maquina = Column(String(100), nullable=False)
+    capacidade_tanque_l = Column(DECIMAL(12, 2), nullable=False)
+    vazao_l_ha = Column(DECIMAL(12, 2), nullable=False)
+    pressao_bar = Column(DECIMAL(12, 2), nullable=False)
+    velocidade_kmh = Column(DECIMAL(12, 2), nullable=False)
+    bico = Column(String(100), nullable=False)
+    area_total_ha = Column(DECIMAL(12, 2), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    itens = relationship("ItemOrdemAplicacao", back_populates="ordem", cascade="all, delete-orphan")
+
+
+class ItemOrdemAplicacao(Base):
+    __tablename__ = "itens_ordem_aplicacao"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ordem_id = Column(Integer, ForeignKey("ordens_aplicacao.id"), nullable=False, index=True)
+    produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=False, index=True)
+    dose_ha = Column(DECIMAL(12, 4), nullable=False)
+    quantidade_total = Column(DECIMAL(12, 2), nullable=False)
+
+    ordem = relationship("OrdemAplicacao", back_populates="itens")
+    produto = relationship("Produto")
+
 class AlertaEstoque(Base):
     __tablename__ = "alertas_estoque"
     

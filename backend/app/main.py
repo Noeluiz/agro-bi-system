@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 from sqlalchemy.exc import IntegrityError
 from decimal import Decimal
+from io import BytesIO
 from datetime import date, datetime, timedelta
 from typing import Optional, List
 import os
@@ -18,7 +19,8 @@ import traceback
 from app.database import get_db, init_db
 from app.models import (
     Categoria, Fornecedor, Produto, Funcionario, FolhaPagamento,
-    FluxoCaixa, Safra, AlertaEstoque, Usuario, Compra, ItemCompra, AplicacaoInsumo
+    FluxoCaixa, Safra, AlertaEstoque, Usuario, Compra, ItemCompra, AplicacaoInsumo,
+    OrdemAplicacao, ItemOrdemAplicacao
 )
 from app.auth import (
     hash_senha, verificar_senha, create_access_token,
@@ -26,6 +28,7 @@ from app.auth import (
 )
 from app.audit import registrar_log
 from app import schemas
+from app.utils.calculadora_tanques import calcular_tanques
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -698,6 +701,177 @@ async def criar_aplicacao_insumo(
         db.rollback()
         logger.error(f"Erro ao registrar aplicação de insumo: {e}")
         raise HTTPException(status_code=500, detail="Erro ao registrar aplicação de insumo")
+
+# ============= ORDENS DE APLICAÇÃO =============
+@app.get("/api/ordens-aplicacao", response_model=List[schemas.OrdemAplicacaoResponse])
+async def listar_ordens_aplicacao(
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_user),
+):
+    """Lista as ordens mais recentes para acompanhamento operacional."""
+    return db.query(OrdemAplicacao).order_by(OrdemAplicacao.created_at.desc()).all()
+
+
+@app.post("/api/ordens-aplicacao", response_model=schemas.OrdemAplicacaoResponse, status_code=status.HTTP_201_CREATED)
+async def criar_ordem_aplicacao(
+    ordem: schemas.OrdemAplicacaoCreate,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """Cria uma ordem, reserva os insumos e baixa o estoque de forma atômica."""
+    try:
+        produto_ids = [item.produto_id for item in ordem.itens]
+        if len(produto_ids) != len(set(produto_ids)):
+            raise HTTPException(status_code=422, detail="Um produto só pode aparecer uma vez na ordem")
+
+        produtos = {}
+        for produto_id in produto_ids:
+            produto = db.query(Produto).filter(Produto.id == produto_id).with_for_update().first()
+            if not produto:
+                raise HTTPException(status_code=404, detail=f"Produto {produto_id} não encontrado")
+            produtos[produto_id] = produto
+
+        quantidades = {
+            item.produto_id: item.dose_ha * ordem.area_total_ha
+            for item in ordem.itens
+        }
+        for produto_id, quantidade in quantidades.items():
+            if produtos[produto_id].estoque_atual < quantidade:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Estoque insuficiente para o produto {produto_id}. Disponível: {produtos[produto_id].estoque_atual}",
+                )
+
+        dados_ordem = ordem.model_dump(exclude={"itens"})
+        dados_ordem["tipo_maquina"] = ordem.tipo_maquina.value
+        db_ordem = OrdemAplicacao(**dados_ordem)
+        db.add(db_ordem)
+        db.flush()
+
+        for item in ordem.itens:
+            quantidade = quantidades[item.produto_id]
+            produtos[item.produto_id].estoque_atual -= quantidade
+            db.add(ItemOrdemAplicacao(
+                ordem_id=db_ordem.id,
+                produto_id=item.produto_id,
+                dose_ha=item.dose_ha,
+                quantidade_total=quantidade,
+            ))
+
+        db.commit()
+        db.refresh(db_ordem)
+        registrar_log(
+            current_user.id,
+            "CRIAR_ORDEM_APLICACAO",
+            f"Ordem #{db_ordem.id}: {ordem.fazenda}, {len(ordem.itens)} produto(s), área {ordem.area_total_ha} ha",
+        )
+        return db_ordem
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Erro ao criar ordem de aplicação: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao criar ordem de aplicação")
+
+
+@app.get("/api/ordens-aplicacao/{ordem_id}/pdf")
+async def gerar_pdf_ordem_aplicacao(
+    ordem_id: int,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_user),
+):
+    """Gera a ordem de aplicação em PDF para impressão ou download."""
+    ordem = db.query(OrdemAplicacao).filter(OrdemAplicacao.id == ordem_id).first()
+    if not ordem:
+        raise HTTPException(status_code=404, detail="Ordem de aplicação não encontrada")
+
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import cm
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    calculo = calcular_tanques(
+        ordem.area_total_ha,
+        ordem.vazao_l_ha,
+        ordem.capacidade_tanque_l,
+        [{"produto_id": item.produto_id, "dose_ha": item.dose_ha} for item in ordem.itens],
+    )
+    buffer = BytesIO()
+    documento = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5 * cm, leftMargin=1.5 * cm)
+    estilos = getSampleStyleSheet()
+    elementos = [
+        Paragraph("ORDEM DE APLICAÇÃO", estilos["Title"]),
+        Paragraph(f"Ordem #{ordem.id} | Emitida em {date.today().strftime('%d/%m/%Y')}", estilos["Normal"]),
+        Spacer(1, 0.35 * cm),
+    ]
+    dados = [
+        ["Fazenda", ordem.fazenda, "Cultura", f"{ordem.cultura} - {ordem.variedade}"],
+        ["Recomendação", ordem.data_recomendacao.strftime("%d/%m/%Y"), "Aplicar até", ordem.data_maxima_aplicacao.strftime("%d/%m/%Y")],
+        ["Máquina", f"{ordem.tipo_maquina} - {ordem.modelo_maquina}", "Operador", ordem.operador],
+        ["Área", f"{ordem.area_total_ha} ha", "Bico / pressão", f"{ordem.bico} / {ordem.pressao_bar} bar"],
+        ["Vazão / velocidade", f"{ordem.vazao_l_ha} L/ha / {ordem.velocidade_kmh} km/h", "Tanque", f"{ordem.capacidade_tanque_l} L"],
+    ]
+    tabela = Table(dados, colWidths=[3.2 * cm, 6.2 * cm, 3.2 * cm, 5.0 * cm])
+    tabela.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#e7f0e8")),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("PADDING", (0, 0), (-1, -1), 6),
+    ]))
+    elementos.extend([tabela, Spacer(1, 0.35 * cm), Paragraph("DIVISÃO DE TANQUES", estilos["Heading2"])])
+    linhas_tanques = [["Tanques cheios", "Área por tanque", "Tanque parcial", "Volume parcial"]]
+    linhas_tanques.append([
+        str(calculo["total_tanques_cheios"]),
+        f"{calculo['ha_por_tanque']:.2f} ha",
+        f"{calculo['area_tanque_parcial']:.2f} ha",
+        f"{calculo['volume_tanque_parcial']:.2f} L",
+    ])
+    tabela_tanques = Table(linhas_tanques, colWidths=[4.1 * cm] * 4)
+    tabela_tanques.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2f6f44")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("PADDING", (0, 0), (-1, -1), 6),
+    ]))
+    elementos.extend([tabela_tanques, Spacer(1, 0.35 * cm), Paragraph("PRODUTOS E DOSES", estilos["Heading2"])])
+    linhas_produtos = [["Produto", "Dose/ha", "Quantidade total", "Dose tanque cheio", "Dose parcial"]]
+    calculos_produtos = {item["produto_id"]: item for item in calculo["produtos"]}
+    for item in ordem.itens:
+        produto = db.query(Produto).filter(Produto.id == item.produto_id).first()
+        produto_calculo = calculos_produtos[item.produto_id]
+        linhas_produtos.append([
+            produto.nome if produto else str(item.produto_id),
+            f"{item.dose_ha}",
+            f"{item.quantidade_total}",
+            f"{produto_calculo['dose_por_tanque_cheio']:.2f}",
+            f"{produto_calculo['dose_por_tanque_parcial']:.2f}",
+        ])
+    tabela_produtos = Table(linhas_produtos, colWidths=[5.2 * cm, 2.3 * cm, 3.0 * cm, 3.2 * cm, 3.2 * cm])
+    tabela_produtos.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2f6f44")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+        ("PADDING", (0, 0), (-1, -1), 5),
+    ]))
+    elementos.extend([
+        tabela_produtos,
+        Spacer(1, 0.5 * cm),
+        Paragraph("ATENÇÃO: utilizar EPI completo conforme rótulo e bula de cada produto.", estilos["Heading3"]),
+        Paragraph(f"Rastreabilidade: ordem #{ordem.id} | operador: {ordem.operador} | emissão: {datetime.now().strftime('%d/%m/%Y %H:%M')}", estilos["Normal"]),
+    ])
+    documento.build(elementos)
+    buffer.seek(0)
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="ordem-aplicacao-{ordem.id}.pdf"'},
+    )
+
 
 # ============= ALERTAS DE ESTOQUE =============
 @app.get("/api/alertas-estoque", response_model=List[schemas.AlertaEstoqueResponse])

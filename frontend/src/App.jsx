@@ -12,6 +12,8 @@ import NotFound from './components/NotFound';
 import Privacidade from './components/Privacidade';
 import Safras from './components/Safras';
 import DetalhesSafra from './components/DetalhesSafra';
+import OrdensAplicacao from './components/OrdensAplicacao';
+import NovaOrdemAplicacao from './components/NovaOrdemAplicacao';
 import { getRole, getUserName, isAuthenticated, logout } from './auth';
 
 function Sistema({ role, userName, onLogout }) {
@@ -20,6 +22,7 @@ function Sistema({ role, userName, onLogout }) {
   const [loading, setLoading] = useState(false);
   const [error] = useState(null);
   const [safraId, setSafraId] = useState(null);
+  const [ordemView, setOrdemView] = useState('list');
 
   useEffect(() => {
     setLoading(false);
@@ -28,6 +31,7 @@ function Sistema({ role, userName, onLogout }) {
   const handleNavigate = (section) => {
     setActiveSection(section);
     setSafraId(null);
+    if (section === 'ordens-aplicacao') setOrdemView('list');
     setMobileMenuOpen(false);
   };
 
@@ -54,6 +58,10 @@ function Sistema({ role, userName, onLogout }) {
         return <Alertas />;
       case 'safras':
         return <Safras onSelectSafra={handleSelectSafra} />;
+      case 'ordens-aplicacao':
+        return ordemView === 'create'
+          ? <NovaOrdemAplicacao onBack={() => setOrdemView('list')} onCreated={() => setOrdemView('list')} />
+          : <OrdensAplicacao onNovaOrdem={() => setOrdemView('create')} />;
       case 'financeiro':
         return role === 'ADMIN' ? <Financeiro /> : <AcessoNegado />;
       case 'rh':
