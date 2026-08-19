@@ -277,7 +277,7 @@ async def login(request: Request, response: Response, form_data: OAuth2PasswordR
     """
     Autentica o usuário por e-mail e senha.
     Aceita 'application/x-www-form-urlencoded' (padrão OAuth2).
-    Retorna o token JWT e define um cookie HttpOnly + SameSite=Strict.
+    Define um cookie HttpOnly; em produção ele usa Secure e SameSite=None para o frontend Vercel.
     """
     email = form_data.username.strip().lower()
     user = db.query(Usuario).filter(Usuario.email == email).with_for_update().first()
@@ -1112,7 +1112,10 @@ async def gerar_pdf_ordem_aplicacao(
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import cm
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.graphics.shapes import Circle, Drawing, Line, Rect, String
+    from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
 
     calculo = calcular_tanques(
         ordem.area_total_ha,
@@ -1122,6 +1125,41 @@ async def gerar_pdf_ordem_aplicacao(
     )
     buffer = BytesIO()
     verde = colors.HexColor("#047857")
+    verde_escuro = colors.HexColor("#064e3b")
+    cinza_claro = colors.HexColor("#f1f5f9")
+    cinza_texto = colors.HexColor("#475569")
+
+    fonte_regular = "Helvetica"
+    fonte_negrito = "Helvetica-Bold"
+    fonte_regular_path = os.getenv("AGRO_BI_FONT_REGULAR")
+    fonte_negrito_path = os.getenv("AGRO_BI_FONT_BOLD")
+    try:
+        if fonte_regular_path and os.path.isfile(fonte_regular_path):
+            pdfmetrics.registerFont(TTFont("AgroSans", fonte_regular_path))
+            fonte_regular = "AgroSans"
+        if fonte_negrito_path and os.path.isfile(fonte_negrito_path):
+            pdfmetrics.registerFont(TTFont("AgroSansBold", fonte_negrito_path))
+            fonte_negrito = "AgroSansBold"
+    except Exception as exc:
+        logger.warning("Fonte personalizada indisponível no PDF; usando fallback padrão: %s", exc)
+
+    def criar_logo():
+        logo_path = os.getenv("AGRO_BI_LOGO_PATH", "").strip()
+        if logo_path and os.path.isfile(logo_path):
+            logo = Image(logo_path, width=3.2 * cm, height=1.45 * cm)
+            logo.hAlign = "LEFT"
+            return logo
+
+        # Placeholder vetorial substituível por AGRO_BI_LOGO_PATH sem alterar o template.
+        logo = Drawing(3.2 * cm, 1.45 * cm)
+        logo.add(Rect(0, 0, 3.2 * cm, 1.45 * cm, rx=5, ry=5, fillColor=verde, strokeColor=colors.white, strokeWidth=0.8))
+        logo.add(Circle(1.6 * cm, 0.93 * cm, 0.22 * cm, fillColor=colors.white, strokeColor=None))
+        logo.add(Line(1.6 * cm, 0.72 * cm, 1.6 * cm, 0.36 * cm, strokeColor=colors.white, strokeWidth=2))
+        logo.add(Line(1.6 * cm, 0.58 * cm, 1.28 * cm, 0.78 * cm, strokeColor=colors.white, strokeWidth=1.5))
+        logo.add(Line(1.6 * cm, 0.58 * cm, 1.92 * cm, 0.78 * cm, strokeColor=colors.white, strokeWidth=1.5))
+        logo.add(String(1.6 * cm, 0.12 * cm, "AGRO-BI", fontName=fonte_negrito, fontSize=7.5, fillColor=colors.white, textAnchor="middle"))
+        return logo
+
     documento = SimpleDocTemplate(
         buffer,
         pagesize=A4,
@@ -1133,9 +1171,9 @@ async def gerar_pdf_ordem_aplicacao(
         author="Agro-BI",
     )
     estilos = getSampleStyleSheet()
-    estilo_titulo = ParagraphStyle("TituloAgro", parent=estilos["Title"], textColor=verde, fontSize=20, leading=24, spaceAfter=4)
-    estilo_secao = ParagraphStyle("SecaoAgro", parent=estilos["Heading2"], textColor=verde, fontSize=12, leading=15, spaceBefore=8, spaceAfter=8)
-    estilo_normal = ParagraphStyle("NormalAgro", parent=estilos["Normal"], fontSize=9, leading=12)
+    estilo_titulo = ParagraphStyle("TituloAgro", parent=estilos["Title"], fontName=fonte_negrito, textColor=verde, fontSize=20, leading=24, spaceAfter=4)
+    estilo_secao = ParagraphStyle("SecaoAgro", parent=estilos["Heading2"], fontName=fonte_negrito, textColor=verde, fontSize=12, leading=15, spaceBefore=8, spaceAfter=8)
+    estilo_normal = ParagraphStyle("NormalAgro", parent=estilos["Normal"], fontName=fonte_regular, textColor=cinza_texto, fontSize=9, leading=12)
 
     def texto(value):
         return escape_xml(str(value))
@@ -1152,12 +1190,30 @@ async def gerar_pdf_ordem_aplicacao(
         canvas.drawRightString(largura - 1.5 * cm, 0.8 * cm, pagina)
         canvas.restoreState()
 
-    elementos = [
-        Paragraph("AGRO-BI", estilo_titulo),
-        Paragraph("ORDEM DE APLICAÇÃO", ParagraphStyle("SubtituloAgro", parent=estilo_secao, fontSize=14, spaceBefore=0)),
-        Paragraph(f"Documento #{ordem.id} | Emitido em {date.today().strftime('%d/%m/%Y')}", estilo_normal),
-        Spacer(1, 0.35 * cm),
-    ]
+    razao_social = os.getenv("FAZENDA_RAZAO_SOCIAL", "Razão Social não configurada")
+    cnpj = os.getenv("FAZENDA_CNPJ", "CNPJ não configurado")
+    endereco = os.getenv("FAZENDA_ENDERECO", "Endereço não configurado")
+    cidade_uf = os.getenv("FAZENDA_CIDADE_UF", "")
+    dados_institucionais = (
+        f"<b>{texto(razao_social)}</b><br/>"
+        f"CNPJ: {texto(cnpj)}<br/>"
+        f"{texto(endereco)}{f' - {texto(cidade_uf)}' if cidade_uf else ''}<br/>"
+        f"Fazenda da ordem: <b>{texto(ordem.fazenda)}</b>"
+    )
+    cabecalho = Table([
+        [criar_logo(), Paragraph(dados_institucionais, ParagraphStyle("Institucional", parent=estilo_normal, textColor=colors.white, leading=12)), Paragraph("ORDEM DE<br/>APLICAÇÃO", ParagraphStyle("TituloCabecalho", parent=estilo_secao, textColor=colors.white, fontSize=13, leading=15, alignment=2, spaceBefore=0))],
+        ["", "", Paragraph(f"Documento #{ordem.id} | Emitido em {date.today().strftime('%d/%m/%Y')}", ParagraphStyle("MetaCabecalho", parent=estilo_normal, textColor=colors.HexColor("#d1fae5"), alignment=2))],
+    ], colWidths=[3.6 * cm, 9.2 * cm, 4.8 * cm])
+    cabecalho.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), verde_escuro),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("SPAN", (0, 1), (1, 1)),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+    ]))
+    elementos = [cabecalho, Spacer(1, 0.45 * cm)]
     dados = [
         ["Fazenda", texto(ordem.fazenda), "Cultura", texto(f"{ordem.cultura} - {ordem.variedade}")],
         ["Recomendação", ordem.data_recomendacao.strftime("%d/%m/%Y"), "Aplicar até", ordem.data_maxima_aplicacao.strftime("%d/%m/%Y")],
@@ -1168,8 +1224,11 @@ async def gerar_pdf_ordem_aplicacao(
     tabela = Table(dados, colWidths=[3.2 * cm, 6.2 * cm, 3.2 * cm, 5.0 * cm])
     tabela.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#ecfdf5")),
+        ("BACKGROUND", (1, 0), (-1, -1), colors.white),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME", (0, 0), (0, -1), fonte_negrito),
+        ("FONTNAME", (1, 0), (-1, -1), fonte_regular),
+        ("TEXTCOLOR", (0, 0), (0, -1), verde_escuro),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("PADDING", (0, 0), (-1, -1), 6),
     ]))
@@ -1185,6 +1244,9 @@ async def gerar_pdf_ordem_aplicacao(
     tabela_tanques.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), verde),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), fonte_negrito),
+        ("FONTNAME", (0, 1), (-1, -1), fonte_regular),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, cinza_claro]),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("PADDING", (0, 0), (-1, -1), 6),
@@ -1206,6 +1268,8 @@ async def gerar_pdf_ordem_aplicacao(
     tabela_produtos.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), verde),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), fonte_negrito),
+        ("FONTNAME", (0, 1), (-1, -1), fonte_regular),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f0fdf4")]),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("ALIGN", (1, 1), (-1, -1), "RIGHT"),

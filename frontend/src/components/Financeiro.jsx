@@ -320,7 +320,7 @@ export default function Financeiro() {
       {/* Tabela de Lançamentos */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[760px]">
             <thead className="bg-stone-50 border-b border-slate-200">
               <tr>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">Data</th>

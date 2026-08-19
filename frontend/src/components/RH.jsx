@@ -84,11 +84,11 @@ export default function RH() {
   return (
     <div className="space-y-4">
       {/* Header com botão de adicionar */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
         <h2 className="text-2xl font-bold text-emerald-800">Recursos Humanos</h2>
         <button
           onClick={() => setModalAberto(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition"
         >
           <Plus className="w-5 h-5" />
           Adicionar Funcionário
@@ -117,7 +117,7 @@ export default function RH() {
       {/* Tabela de Funcionários */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+            <table className="w-full min-w-[820px]">
             <thead className="bg-stone-50 border-b border-slate-200">
               <tr>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">Nome</th>

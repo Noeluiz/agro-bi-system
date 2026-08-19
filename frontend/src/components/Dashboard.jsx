@@ -83,7 +83,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       {/* Título */}
       <div>
-        <h1 className="text-3xl font-bold text-emerald-800">Dashboard Executivo</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-emerald-800">Dashboard Executivo</h1>
         <p className="text-slate-600 mt-1">Visão completa do seu negócio agrícola</p>
       </div>
 

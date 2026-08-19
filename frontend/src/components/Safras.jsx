@@ -115,7 +115,7 @@ export default function Safras({ onSelectSafra, role }) {
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-emerald-800">Safras</h1>
           <p className="text-slate-600 mt-1">Gerencie suas safras e culturas</p>
@@ -228,13 +228,13 @@ export default function Safras({ onSelectSafra, role }) {
               key={safra.id}
               className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 hover:shadow-md transition-shadow"
             >
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <button type="button" onClick={() => onSelectSafra(safra.id)} className="text-left text-lg font-semibold text-emerald-800 hover:text-emerald-700">{safra.nome_safra}</button>
                   <p className="text-sm text-slate-600 mt-1">
                     Cultura: <span className="font-medium">{safra.cultura}</span>
                   </p>
-                  <div className="flex gap-4 mt-2 text-sm text-slate-600">
+                  <div className="flex flex-wrap gap-3 sm:gap-4 mt-2 text-sm text-slate-600">
                     <span>📍 {safra.hectares_plantados} ha</span>
                     {safra.sacas_produzidas && <span>🌾 {safra.sacas_produzidas} sacas</span>}
                     <span>💰 {formatarMoeda(safra.custo_total || safra.custo_total_acumulado)}</span>

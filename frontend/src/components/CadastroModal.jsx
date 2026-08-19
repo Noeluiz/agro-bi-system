@@ -359,10 +359,10 @@ export default function CadastroModal({
   const currentTipo = tipo === 'produto' ? activeTab : tipo;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white flex justify-between items-center p-6 border-b border-slate-200">
-          <h2 className="text-2xl font-bold text-emerald-800">{getTitle()}</h2>
+    <div className="fixed inset-0 overflow-y-auto bg-black bg-opacity-50 z-50 p-3 sm:p-4">
+      <div className="mx-auto my-3 sm:my-6 bg-white rounded-xl shadow-lg w-full max-w-2xl max-h-[calc(100vh-1.5rem)] sm:max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 z-10 bg-white flex justify-between items-center p-4 sm:p-6 border-b border-slate-200">
+          <h2 className="text-xl sm:text-2xl font-bold text-emerald-800">{getTitle()}</h2>
           <button
             onClick={handleClose}
             disabled={isSubmitting}
@@ -375,12 +375,12 @@ export default function CadastroModal({
 
         {/* ABAS - Mostrar apenas para modal de Produto */}
         {tipo === 'produto' && (
-          <div className="flex gap-0 border-b border-slate-200 bg-stone-50 px-6">
+          <div className="flex gap-0 overflow-x-auto border-b border-slate-200 bg-stone-50 px-4 sm:px-6">
             {['produto', 'categoria', 'fornecedor'].map(tab => (
               <button
                 key={tab}
                 onClick={() => handleTabChange(tab)}
-                className={`px-4 py-3 text-sm font-medium border-b-2 transition ${
+                className={`shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition ${
                   activeTab === tab
                     ? 'text-emerald-700 border-emerald-700'
                     : 'text-slate-600 border-transparent hover:text-emerald-700'
@@ -401,7 +401,7 @@ export default function CadastroModal({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
           {/* PRODUTO */}
           {currentTipo === 'produto' && (
             <>

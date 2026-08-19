@@ -139,6 +139,10 @@ export default function Sidebar({
 
         {/* Drawer deslizante */}
         <div
+          id="menu-mobile"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menu principal"
           className={`fixed top-0 left-0 z-50 h-full w-72 bg-white shadow-xl transition-transform duration-300 md:hidden ${
             mobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}

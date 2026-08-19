@@ -33,6 +33,18 @@ function Sistema({ role, userName, userEmail, onLogout }) {
     setLoading(false);
   }, []);
 
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') setMobileMenuOpen(false);
+    };
+    document.addEventListener('keydown', handleEscape);
+    document.body.classList.toggle('overflow-hidden', mobileMenuOpen);
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.classList.remove('overflow-hidden');
+    };
+  }, [mobileMenuOpen]);
+
   const handleNavigate = (section) => {
     setActiveSection(section);
     setSafraId(null);
@@ -92,7 +104,7 @@ function Sistema({ role, userName, userEmail, onLogout }) {
   }
 
   return (
-    <div className="flex h-screen bg-stone-50">
+    <div className="flex h-screen min-w-0 bg-stone-50">
       <Sidebar
         role={role}
         userName={userName}
@@ -104,7 +116,7 @@ function Sistema({ role, userName, userEmail, onLogout }) {
         onboardingTarget={onboardingTarget}
       />
 
-      <main className="flex-1 overflow-auto">
+      <main className="min-w-0 flex-1 overflow-auto">
         <OnboardingTour userEmail={userEmail} onNavigate={handleNavigate} onHighlight={setOnboardingTarget} />
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg m-4">
@@ -122,6 +134,8 @@ function Sistema({ role, userName, userEmail, onLogout }) {
                 onClick={() => setMobileMenuOpen(true)}
                 className="md:hidden p-2 rounded-lg text-slate-600 hover:bg-stone-100 transition border border-slate-200"
                 aria-label="Abrir menu"
+                aria-expanded={mobileMenuOpen}
+                aria-controls="menu-mobile"
               >
                 <Menu className="w-5 h-5" />
               </button>

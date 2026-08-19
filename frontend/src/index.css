@@ -16,6 +16,17 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: #f5f3f0;
   color: #1e293b;
+  overflow-x: hidden;
+}
+
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea,
+  button {
+    font-size: 1rem;
+    min-height: 44px;
+  }
 }
 
 code {

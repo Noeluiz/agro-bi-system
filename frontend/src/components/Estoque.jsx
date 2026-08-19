@@ -346,7 +346,7 @@ export default function Estoque({ role }) {
       {/* Tabela de Produtos com botão de editar estoque */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[760px]">
             <thead className="bg-stone-50 border-b border-slate-200">
               <tr>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">Nome</th>
@@ -374,23 +374,25 @@ export default function Estoque({ role }) {
                     <td className="px-6 py-4 text-sm text-slate-800">{parseFloat(produto.estoque_atual).toLocaleString('pt-BR')}</td>
                     <td className="px-6 py-4 text-sm text-slate-800">{formatarMoeda(produto.preco_custo)}</td>
                     <td className="px-6 py-4 text-sm text-slate-800">{formatarMoeda(produto.preco_venda)}</td>
-                    <td className="px-6 py-4 text-sm flex gap-2">
-                      <button
+                    <td className="px-6 py-4 text-sm">
+                      <div className="flex gap-2">
+                        <button
                         onClick={() => handleEditarEstoque(produto)}
                         className="p-2 rounded-lg text-emerald-600 hover:bg-emerald-50 transition"
                         title="Atualizar estoque"
                       >
                         <Edit2 className="w-4 h-4" />
-                      </button>
-                      {role === 'ADMIN' && (
-                        <button
+                        </button>
+                        {role === 'ADMIN' && (
+                          <button
                           onClick={() => handleDeletarProduto(produto)}
                           className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition"
                           title="Excluir produto"
                         >
                           <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
