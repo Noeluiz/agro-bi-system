@@ -3,6 +3,7 @@ import { Plus, Trash2, AlertCircle, TrendingUp, TrendingDown, Download } from 'l
 import CadastroModal from './CadastroModal';
 import { apiFetch } from '../auth';
 import { formatarMoeda } from '../utils/formatters';
+import { exportarRelatorioCsv, formatarDataBR } from '../utils/csvExport';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -93,25 +94,19 @@ export default function Financeiro() {
     try {
       const headers = ['Data', 'Tipo', 'Categoria', 'Valor', 'Descrição'];
       const rows = lancamentos.map(l => [
-        new Date(l.data).toLocaleDateString('pt-BR'),
+        formatarDataBR(l.data),
         l.tipo,
         l.categoria_financeira || 'N/A',
-        l.valor,
+        formatarMoeda(l.valor),
         l.descricao || ''
       ]);
 
-      const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      
-      link.setAttribute('href', url);
-      link.setAttribute('download', `financeiro_${new Date().toISOString().slice(0, 10)}.csv`);
-      link.style.visibility = 'hidden';
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      exportarRelatorioCsv({
+        nomeArquivo: `financeiro_${new Date().toISOString().slice(0, 10)}.csv`,
+        titulo: 'Relatório Financeiro',
+        cabecalhos: headers,
+        linhas: rows,
+      });
     } catch (err) {
       setError('Erro ao exportar: ' + err.message);
       console.error('Erro ao exportar:', err);

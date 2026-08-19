@@ -4,6 +4,7 @@ import CadastroModal from './CadastroModal';
 import LoadingSpinner from './LoadingSpinner';
 import { apiFetch } from '../auth';
 import { formatarMoeda } from '../utils/formatters';
+import { exportarRelatorioCsv, formatarNumeroBR } from '../utils/csvExport';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -157,23 +158,19 @@ export default function Estoque({ role }) {
       p.nome,
       p.categoria?.nome || '',
       p.fornecedor?.nome || '',
-      p.estoque_atual,
-      p.estoque_minimo,
+      formatarNumeroBR(p.estoque_atual),
+      formatarNumeroBR(p.estoque_minimo),
       formatarMoeda(p.preco_custo),
       formatarMoeda(p.preco_venda),
       p.unidade_medida
     ]);
 
-    const escapeCsv = (valor) => `"${String(valor ?? '').replace(/"/g, '""')}"`;
-    const csv = `\uFEFFsep=;\r\n${[headers, ...rows]
-      .map((row) => row.map(escapeCsv).join(';'))
-      .join('\r\n')}`;
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `estoque_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
+    exportarRelatorioCsv({
+      nomeArquivo: `estoque_${new Date().toISOString().slice(0, 10)}.csv`,
+      titulo: 'Relatório de Estoque',
+      cabecalhos: headers,
+      linhas: rows,
+    });
   };
 
   if (loading) {

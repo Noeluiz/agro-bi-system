@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, AlertCircle, CheckCircle, AlertTriangle, Trash2, Download } from 'lucide-react';
 import CadastroModal from './CadastroModal';
 import { apiFetch } from '../auth';
+import { exportarRelatorioCsv } from '../utils/csvExport';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -102,18 +103,12 @@ export default function Alertas() {
         a.resolvido ? 'Resolvido' : 'Pendente'
       ]);
 
-      const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      
-      link.setAttribute('href', url);
-      link.setAttribute('download', `alertas_${new Date().toISOString().slice(0, 10)}.csv`);
-      link.style.visibility = 'hidden';
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      exportarRelatorioCsv({
+        nomeArquivo: `alertas_${new Date().toISOString().slice(0, 10)}.csv`,
+        titulo: 'Relatório de Alertas de Estoque',
+        cabecalhos: headers,
+        linhas: rows,
+      });
     } catch (err) {
       setError('Erro ao exportar: ' + err.message);
       console.error('Erro ao exportar:', err);
