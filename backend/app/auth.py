@@ -132,7 +132,7 @@ def get_current_user(
         raise credentials_exception
 
     user = db.query(Usuario).filter(Usuario.email == email).first()
-    if user is None:
+    if user is None or not user.ativo:
         raise credentials_exception
     return user
 

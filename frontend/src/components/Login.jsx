@@ -124,8 +124,11 @@ export default function Login({ onLogin }) {
               {loading ? 'Entrando...' : 'Entrar'}
             </button>
 
-            <p className="text-center text-xs text-slate-500">
-              Ao acessar, você concorda com nossa{' '}
+            <p className="text-center text-xs text-slate-500 leading-relaxed">
+              Ao continuar, você concorda com nossos{' '}
+              <Link to="/termos" className="text-emerald-700 hover:text-emerald-800 underline underline-offset-2">
+                Termos de Uso
+              </Link>{' '}e{' '}
               <Link to="/privacidade" className="text-emerald-700 hover:text-emerald-800 underline underline-offset-2">
                 Política de Privacidade
               </Link>.

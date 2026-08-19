@@ -87,8 +87,9 @@ CREATE TABLE IF NOT EXISTS usuarios (
     email VARCHAR(150) NOT NULL UNIQUE,
     senha_hash VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'GERENTE',
+    ativo BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT ck_usuarios_role CHECK (role IN ('ADMIN', 'GERENTE'))
+    CONSTRAINT ck_usuarios_role CHECK (role IN ('ADMIN', 'GERENTE', 'OPERADOR'))
 );
 
 -- Insert Categories

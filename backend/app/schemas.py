@@ -7,15 +7,18 @@ from enum import Enum
 # ============= AUTH SCHEMAS =============
 
 class UsuarioCreate(BaseModel):
-    """Schema de criação de usuário.
+    nome: str = Field(min_length=1, max_length=150)
+    email: str = Field(min_length=3, max_length=150)
+    senha: str = Field(min_length=6, max_length=128)
+    role: str = Field(pattern="^(ADMIN|GERENTE|OPERADOR)$")
 
-    ATENÇÃO: o campo `role` NÃO é aceito do cliente. A role é definida
-    exclusivamente no servidor (proteção contra escalonamento de privilégio
-    via Mass Assignment).
-    """
-    nome: str
-    email: str
-    senha: str
+
+class UsuarioUpdate(BaseModel):
+    nome: Optional[str] = Field(default=None, min_length=1, max_length=150)
+    email: Optional[str] = Field(default=None, min_length=3, max_length=150)
+    senha: Optional[str] = Field(default=None, min_length=6, max_length=128)
+    role: Optional[str] = Field(default=None, pattern="^(ADMIN|GERENTE|OPERADOR)$")
+    ativo: Optional[bool] = None
 
 class UsuarioLogin(BaseModel):
     email: str
@@ -26,6 +29,7 @@ class UsuarioResponse(BaseModel):
     nome: str
     email: str
     role: str
+    ativo: bool
     created_at: datetime
 
     class Config:

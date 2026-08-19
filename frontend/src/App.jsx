@@ -10,11 +10,13 @@ import Estoque from './components/Estoque';
 import Alertas from './components/Alertas';
 import NotFound from './components/NotFound';
 import Privacidade from './components/Privacidade';
+import TermosUso from './components/TermosUso';
 import Safras from './components/Safras';
 import DetalhesSafra from './components/DetalhesSafra';
 import OrdensAplicacao from './components/OrdensAplicacao';
 import NovaOrdemAplicacao from './components/NovaOrdemAplicacao';
 import Movimentacoes from './components/Movimentacoes';
+import Usuarios from './components/Usuarios';
 import { getRole, getUserEmail, getUserName, isAuthenticated, logout } from './auth';
 import OnboardingTour from './components/OnboardingTour';
 
@@ -66,6 +68,8 @@ function Sistema({ role, userName, userEmail, onLogout }) {
           : <OrdensAplicacao onNovaOrdem={() => setOrdemView('create')} />;
       case 'movimentacoes':
         return <Movimentacoes />;
+      case 'usuarios':
+        return role === 'ADMIN' ? <Usuarios /> : <AcessoNegado />;
       case 'financeiro':
         return role === 'ADMIN' ? <Financeiro /> : <AcessoNegado />;
       case 'rh':
@@ -184,6 +188,7 @@ function App() {
         element={autenticado ? <Navigate to="/dashboard" replace /> : <Login onLogin={handleLogin} />}
       />
       <Route path="/privacidade" element={<Privacidade />} />
+      <Route path="/termos" element={<TermosUso />} />
       <Route
         path="/dashboard"
         element={autenticado ? <Sistema role={role} userName={userName} userEmail={userEmail} onLogout={handleLogout} /> : <Navigate to="/login" replace />}

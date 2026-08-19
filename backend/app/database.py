@@ -42,12 +42,21 @@ def _aplicar_migracoes_aditivas():
     """Mantém instalações existentes compatíveis sem remover ou reescrever dados."""
     inspector = inspect(engine)
     colunas_safra = {coluna["name"] for coluna in inspector.get_columns("safras")}
+    colunas_usuario = {coluna["name"] for coluna in inspector.get_columns("usuarios")}
 
     with engine.begin() as connection:
         if "producao_total" not in colunas_safra:
             connection.execute(text("ALTER TABLE safras ADD COLUMN producao_total NUMERIC(12, 2)"))
         if "custo_total" not in colunas_safra:
             connection.execute(text("ALTER TABLE safras ADD COLUMN custo_total NUMERIC(12, 2)"))
+        if "ativo" not in colunas_usuario:
+            connection.execute(text("ALTER TABLE usuarios ADD COLUMN ativo BOOLEAN NOT NULL DEFAULT TRUE"))
+
+        connection.execute(text("ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS ck_usuarios_role"))
+        connection.execute(text(
+            "ALTER TABLE usuarios ADD CONSTRAINT ck_usuarios_role "
+            "CHECK (role IN ('ADMIN', 'GERENTE', 'OPERADOR'))"
+        ))
 
         restricoes_unicas = inspector.get_unique_constraints("fornecedores")
         indices = inspector.get_indexes("fornecedores")

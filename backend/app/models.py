@@ -11,10 +11,11 @@ class Usuario(Base):
     email = Column(String(150), unique=True, nullable=False, index=True)
     senha_hash = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False, default='GERENTE')
+    ativo = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (
-        CheckConstraint("role IN ('ADMIN', 'GERENTE')", name="ck_usuarios_role"),
+        CheckConstraint("role IN ('ADMIN', 'GERENTE', 'OPERADOR')", name="ck_usuarios_role"),
     )
 
     def __repr__(self):

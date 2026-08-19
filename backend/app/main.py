@@ -328,6 +328,91 @@ def obter_usuario_atual(current_user: Usuario = Depends(get_current_user)):
     return current_user
 
 
+# ============= USUÁRIOS (somente ADMIN) =============
+@app.get("/api/usuarios", response_model=List[schemas.UsuarioResponse])
+async def listar_usuarios(
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(require_admin),
+):
+    return db.query(Usuario).order_by(Usuario.nome.asc()).all()
+
+
+@app.post("/api/usuarios", response_model=schemas.UsuarioResponse, status_code=status.HTTP_201_CREATED)
+async def criar_usuario(
+    usuario: schemas.UsuarioCreate,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_admin),
+):
+    try:
+        email = usuario.email.strip().lower()
+        if db.query(Usuario).filter(Usuario.email == email).first():
+            raise HTTPException(status_code=409, detail="Já existe um usuário com este e-mail")
+
+        novo_usuario = Usuario(
+            nome=usuario.nome.strip(),
+            email=email,
+            senha_hash=hash_senha(usuario.senha),
+            role=usuario.role,
+            ativo=True,
+        )
+        db.add(novo_usuario)
+        db.commit()
+        db.refresh(novo_usuario)
+        registrar_log(current_user.id, "CRIAR_USUARIO", f"Usuário #{novo_usuario.id} criado com papel {novo_usuario.role}")
+        return novo_usuario
+    except HTTPException:
+        db.rollback()
+        raise
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Já existe um usuário com este e-mail")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Erro ao criar usuário: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao criar usuário")
+
+
+@app.patch("/api/usuarios/{usuario_id}", response_model=schemas.UsuarioResponse)
+async def atualizar_usuario(
+    usuario_id: int,
+    dados: schemas.UsuarioUpdate,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_admin),
+):
+    usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    if usuario.id == current_user.id and dados.ativo is False:
+        raise HTTPException(status_code=422, detail="O administrador não pode bloquear a própria conta")
+    if dados.email:
+        email = dados.email.strip().lower()
+        existente = db.query(Usuario).filter(Usuario.email == email, Usuario.id != usuario_id).first()
+        if existente:
+            raise HTTPException(status_code=409, detail="Já existe um usuário com este e-mail")
+        usuario.email = email
+    if dados.nome is not None:
+        usuario.nome = dados.nome.strip()
+    if dados.senha:
+        usuario.senha_hash = hash_senha(dados.senha)
+    if dados.role is not None:
+        usuario.role = dados.role
+    if dados.ativo is not None:
+        usuario.ativo = dados.ativo
+
+    try:
+        db.commit()
+        db.refresh(usuario)
+        registrar_log(current_user.id, "ATUALIZAR_USUARIO", f"Usuário #{usuario.id} atualizado")
+        return usuario
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Não foi possível atualizar o usuário")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Erro ao atualizar usuário: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao atualizar usuário")
+
+
 # ============= CATEGORIAS =============
 @app.get("/api/categorias", response_model=List[schemas.CategoriaResponse])
 async def listar_categorias(
