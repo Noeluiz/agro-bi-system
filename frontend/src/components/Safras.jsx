@@ -5,7 +5,7 @@ import { formatarMoeda } from '../utils/formatters';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-export default function Safras({ onSelectSafra, role }) {
+export default function Safras({ onSelectSafra, role, onSafraCreated }) {
   const [safras, setSafras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -67,6 +67,7 @@ export default function Safras({ onSelectSafra, role }) {
       });
 
       if (res.ok) {
+        const safraCriada = await res.json();
         await carregarSafras();
         setFormData({
           nome_safra: '',
@@ -78,6 +79,7 @@ export default function Safras({ onSelectSafra, role }) {
           custo_total_acumulado: '0',
         });
         setShowForm(false);
+        onSafraCreated?.(safraCriada);
       } else {
         const erro = await res.json();
         setError('Erro ao criar safra: ' + (erro.detail || 'Erro desconhecido'));

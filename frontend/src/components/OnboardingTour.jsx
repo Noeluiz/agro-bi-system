@@ -6,7 +6,7 @@ const steps = [
   { title: 'Vamos começar', text: 'Primeiro, cadastre um Produto no Estoque. Vamos deixar este passo aberto enquanto você realiza o cadastro.', target: 'estoque', action: 'Ir para Estoque', targetLabel: 'Menu Estoque e botão Novo Produto' },
   { title: 'Registre suas áreas', text: 'Produto criado. Agora, crie uma Safra para registrar suas áreas, culturas e acompanhar a produção.', target: 'safras', action: 'Abrir Safras', targetLabel: 'Menu Safras e botão Nova Safra' },
   { title: 'Planeje os tratamentos', text: 'Crie uma Ordem de Aplicação para registrar tratamentos, produtos, doses e parâmetros da máquina.', target: 'ordens-aplicacao', action: 'Abrir Ordens', targetLabel: 'Menu Ordens de Aplicação e botão Nova Ordem' },
-  { title: 'Acompanhe os resultados', text: 'Veja seus resultados no Dashboard e consulte todas as entradas e saídas em Movimentações.', target: 'movimentacoes', action: 'Abrir Movimentações', targetLabel: 'Menu Movimentações' },
+  { title: 'Acompanhe os resultados', text: 'Veja seus resultados no Dashboard e consulte todas as entradas e saídas em Movimentações.', target: 'dashboard', action: 'Abrir Dashboard', targetLabel: 'Dashboard e menu Movimentações' },
 ];
 
 const storageKey = (email) => `agro_bi_onboarding_seen:${email}`;
@@ -66,9 +66,9 @@ export default function OnboardingTour({ userEmail, onNavigate, onHighlight, onP
   };
 
   const irParaAlvo = () => {
-    if (step === 2) {
-      salvarProgresso({ seen: true, currentStep: 2, paused: true });
-      onPause?.();
+    if (step === 2 || step === 3) {
+      salvarProgresso({ seen: true, currentStep: step, paused: true });
+      onPause?.(step);
       onHighlight?.(null);
       setVisible(false);
       onNavigate(currentStep.target);

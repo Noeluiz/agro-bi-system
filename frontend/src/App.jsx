@@ -19,6 +19,7 @@ import Movimentacoes from './components/Movimentacoes';
 import Usuarios from './components/Usuarios';
 import { getRole, getUserEmail, getUserName, isAuthenticated, logout } from './auth';
 import OnboardingTour from './components/OnboardingTour';
+import Ajuda from './components/Ajuda';
 
 function Sistema({ role, userName, userEmail, onLogout }) {
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -29,6 +30,7 @@ function Sistema({ role, userName, userEmail, onLogout }) {
   const [ordemView, setOrdemView] = useState('list');
   const [onboardingTarget, setOnboardingTarget] = useState(null);
   const [onboardingPaused, setOnboardingPaused] = useState(false);
+  const [onboardingPausedStep, setOnboardingPausedStep] = useState(null);
   const [onboardingResume, setOnboardingResume] = useState(null);
 
   useEffect(() => {
@@ -75,6 +77,19 @@ function Sistema({ role, userName, userEmail, onLogout }) {
     setOnboardingResume({ step: 3, message: '' });
   };
 
+  const handleSafraCreated = () => {
+    if (!onboardingPaused || onboardingPausedStep !== 3) return;
+    setOnboardingPaused(false);
+    setOnboardingPausedStep(null);
+    setOnboardingResume({ step: 5, message: '' });
+  };
+
+  const handleReplayOnboarding = () => {
+    setOnboardingPaused(false);
+    setOnboardingPausedStep(null);
+    setOnboardingResume({ step: 1, message: '' });
+  };
+
   const handleSelectSafra = (id) => {
     setSafraId(id);
   };
@@ -97,13 +112,15 @@ function Sistema({ role, userName, userEmail, onLogout }) {
       case 'alertas':
         return <Alertas />;
       case 'safras':
-        return <Safras role={role} onSelectSafra={handleSelectSafra} />;
+        return <Safras role={role} onSelectSafra={handleSelectSafra} onSafraCreated={handleSafraCreated} />;
       case 'ordens-aplicacao':
         return ordemView === 'create'
           ? <NovaOrdemAplicacao onBack={() => setOrdemView('list')} onCreated={() => setOrdemView('list')} />
           : <OrdensAplicacao role={role} onNovaOrdem={() => setOrdemView('create')} />;
       case 'movimentacoes':
         return <Movimentacoes />;
+      case 'ajuda':
+        return <Ajuda onReplayOnboarding={handleReplayOnboarding} />;
       case 'usuarios':
         return role === 'ADMIN' ? <Usuarios /> : <AcessoNegado />;
       case 'financeiro':
@@ -140,7 +157,7 @@ function Sistema({ role, userName, userEmail, onLogout }) {
       />
 
       <main className="min-w-0 flex-1 overflow-auto">
-        <OnboardingTour userEmail={userEmail} onNavigate={handleNavigate} onHighlight={setOnboardingTarget} onPause={() => setOnboardingPaused(true)} resumeSignal={onboardingResume} />
+        <OnboardingTour userEmail={userEmail} onNavigate={handleNavigate} onHighlight={setOnboardingTarget} onPause={(step) => { setOnboardingPaused(true); setOnboardingPausedStep(step); }} resumeSignal={onboardingResume} />
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg m-4">
             <div className="flex items-center">
