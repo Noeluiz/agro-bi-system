@@ -1,106 +1,112 @@
-import { useEffect, useState } from 'react';
-import { ArrowDown, ArrowRight, Check, ExternalLink, Sprout, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowDown, ArrowLeft, ArrowRight, Check, ExternalLink, Sprout, X } from 'lucide-react';
 
-const steps = [
-  { title: 'Bem-vindo ao Agro-BI', text: 'Aqui você acompanha estoque, safras, ordens de aplicação, movimentações e resultados da operação agrícola.', target: 'dashboard', targetLabel: 'Painel principal' },
-  { title: 'Vamos começar', text: 'Primeiro, cadastre um Produto no Estoque. Vamos deixar este passo aberto enquanto você realiza o cadastro.', target: 'estoque', action: 'Ir para Estoque', targetLabel: 'Menu Estoque e botão Novo Produto' },
-  { title: 'Registre suas áreas', text: 'Produto criado. Agora, crie uma Safra para registrar suas áreas, culturas e acompanhar a produção.', target: 'safras', action: 'Abrir Safras', targetLabel: 'Menu Safras e botão Nova Safra' },
-  { title: 'Planeje os tratamentos', text: 'Crie uma Ordem de Aplicação para registrar tratamentos, produtos, doses e parâmetros da máquina.', target: 'ordens-aplicacao', action: 'Abrir Ordens', targetLabel: 'Menu Ordens de Aplicação e botão Nova Ordem' },
-  { title: 'Acompanhe os resultados', text: 'Veja seus resultados no Dashboard e consulte todas as entradas e saídas em Movimentações.', target: 'dashboard', action: 'Abrir Dashboard', targetLabel: 'Dashboard e menu Movimentações' },
+const baseSteps = [
+  { id: 'dashboard', title: 'Dashboard: sua visão executiva', text: 'Comece pelos cartões de Faturamento, Lucro, Margem, Custo por hectare, Custo por saca, Produtividade e Estoque. Eles resumem os dados registrados nos demais módulos. Logo abaixo, o gráfico de fluxo de caixa compara receitas e despesas por período. Use o Dashboard para acompanhar tendências e decidir onde investigar.', action: 'Abrir Dashboard' },
+  { id: 'estoque', title: 'Estoque: encontre e cadastre insumos', text: 'Use a busca para localizar produtos pelo nome e os filtros de Categoria e Fornecedor para reduzir a lista. Para cadastrar, clique em Novo Produto: informe nome, categoria, fornecedor, unidade de medida, estoque atual, estoque mínimo, preço de custo e preço de venda. O botão Exportar CSV gera uma tabela limpa, compatível com Excel, com valores em padrão brasileiro.', action: 'Abrir Estoque' },
+  { id: 'safras', title: 'Safras: organize suas áreas', text: 'Uma safra representa uma cultura cultivada em uma área e período. Clique em Nova Safra e preencha nome, cultura, data de início, data de fim quando houver, hectares plantados e produção. Depois, abra uma safra para consultar detalhes e aplicações. A safra pode ser selecionada na criação de uma Ordem de Aplicação para preencher a área e a cultura.', action: 'Abrir Safras' },
+  { id: 'ordens-aplicacao', title: 'Ordens de Aplicação: planeje tratamentos', text: 'Uma ordem é o plano operacional de aplicação de insumos. Clique em Nova Ordem, selecione a safra ou informe fazenda, cultura, variedade, datas, tipo e modelo da máquina, operador, tanque, vazão, pressão, velocidade e bico. Em Produtos da aplicação, escolha cada produto e informe a dose por hectare. O sistema calcula a quantidade total, divide tanques cheios e parcial e baixa o estoque após criar.', action: 'Abrir Ordens' },
+  { id: 'ordens-pdf', title: 'PDF: registre e compartilhe a operação', text: 'Na lista de Ordens, use Baixar PDF para gerar o documento profissional da ordem. Ele contém identificação da fazenda, parâmetros da máquina, divisão de tanques, doses, aviso de EPI, rastreabilidade, cabeçalho institucional e paginação. Guarde o PDF para consulta operacional e auditoria.', action: 'Ver Ordens' },
+  { id: 'financeiro', title: 'Financeiro: registre receitas e despesas', text: 'No Financeiro, Adicionar Lançamento abre o cadastro de uma Receita ou Despesa. Informe tipo, valor, categoria, data e descrição. Os cartões mostram receitas, despesas e saldo. Use os filtros por tipo, data inicial e data final para analisar um período; Exportar CSV gera a tabela filtrada para o Excel.', action: 'Abrir Financeiro', admin: true },
+  { id: 'rh', title: 'Recursos Humanos: acompanhe a equipe', text: 'Em RH, cadastre funcionários informando nome, CPF quando aplicável, cargo, salário base e data de admissão. A listagem mostra status e permite inativar sem apagar o histórico. O soft delete mantém o registro para auditoria e evita perda de informação.', action: 'Abrir RH', admin: true },
+  { id: 'usuarios', title: 'Usuários: controle de acesso', text: 'Somente ADMIN gerencia usuários. Em Novo usuário, informe nome, e-mail, senha e papel: ADMIN, GERENTE ou OPERADOR. Use Editar para atualizar dados e Bloquear/Desbloquear para controlar o acesso sem apagar a conta. Conceda apenas o papel necessário para cada pessoa.', action: 'Abrir Usuários', admin: true },
+  { id: 'movimentacoes', title: 'Movimentações: rastreie o estoque', text: 'Esta tela consolida o histórico de entradas e saídas. Compras aparecem como ENTRADA; itens consumidos por Ordens de Aplicação aparecem como SAÍDA. Consulte produto, quantidade, data e referência para entender por que o estoque mudou.', action: 'Abrir Movimentações' },
+  { id: 'alertas', title: 'Alertas: trate pendências', text: 'A tela de Alertas mostra avisos de estoque e outras pendências. Alterne entre Todos, Pendentes e Resolvidos. Ao concluir uma pendência, clique em Resolver para registrar o tratamento; use Exportar CSV para compartilhar a lista e os filtros para encontrar alertas específicos.', action: 'Abrir Alertas' },
+  { id: 'ajuda', title: 'Ajuda: reveja quando quiser', text: 'A tela Ajuda reúne este tour e o espaço reservado para o vídeo tutorial da empresa. Você pode reiniciar o guia a qualquer momento. Ao concluir, o progresso fica salvo por usuário e o sistema não interrompe seu trabalho novamente.', action: 'Abrir Ajuda' },
 ];
 
-const storageKey = (email) => `agro_bi_onboarding_seen:${email}`;
+const keyFor = (email) => `agro_bi_onboarding_seen:${email}`;
 
-function lerProgresso(email) {
-  if (!email) return { seen: false, currentStep: 1 };
-  const salvo = localStorage.getItem(storageKey(email));
-  if (!salvo) return { seen: false, currentStep: 1 };
-  if (salvo === 'true') return { seen: false, currentStep: 2, retry: true };
-  try {
-    const progresso = JSON.parse(salvo);
-    if (progresso.paused && progresso.currentStep === 2) {
-      return { ...progresso, seen: false, retry: true };
-    }
-    return progresso;
-  } catch {
-    return { seen: false, currentStep: 1 };
-  }
+function readProgress(email) {
+  if (!email) return { seen: false, currentStep: 0 };
+  const raw = localStorage.getItem(keyFor(email));
+  if (!raw || raw === 'true') return { seen: false, currentStep: 0 };
+  try { return JSON.parse(raw); } catch { return { seen: false, currentStep: 0 }; }
 }
 
-export default function OnboardingTour({ userEmail, onNavigate, onHighlight, onPause, resumeSignal }) {
+export default function OnboardingTour({ role, userEmail, onNavigate, onHighlight, onPause, resumeSignal }) {
+  const steps = useMemo(() => baseSteps.filter((step) => !step.admin || role === 'ADMIN'), [role]);
   const [visible, setVisible] = useState(false);
-  const [step, setStep] = useState(1);
-  const [retryMessage, setRetryMessage] = useState('');
+  const [stepIndex, setStepIndex] = useState(0);
 
-  const salvarProgresso = (dados) => {
-    if (userEmail) localStorage.setItem(storageKey(userEmail), JSON.stringify(dados));
+  const save = (progress) => {
+    if (userEmail) localStorage.setItem(keyFor(userEmail), JSON.stringify(progress));
   };
 
   useEffect(() => {
-    const progresso = lerProgresso(userEmail);
-    setStep(Math.min(Math.max(progresso.currentStep || 1, 1), steps.length));
-    setRetryMessage(progresso.retry ? 'Você ainda não criou um produto. Vamos tentar de novo.' : '');
-    setVisible(!progresso.seen || Boolean(progresso.retry));
-  }, [userEmail]);
+    const progress = readProgress(userEmail);
+    const nextIndex = Math.min(Math.max(progress.currentStep || 0, 0), Math.max(steps.length - 1, 0));
+    setStepIndex(nextIndex);
+    setVisible(!progress.seen);
+  }, [userEmail, steps.length]);
 
   useEffect(() => {
     if (!resumeSignal) return;
-    setStep(resumeSignal.step);
-    setRetryMessage(resumeSignal.message || '');
+    const nextIndex = Math.min(Math.max(resumeSignal.step || 0, 0), Math.max(steps.length - 1, 0));
+    setStepIndex(nextIndex);
     setVisible(true);
-    salvarProgresso({ seen: true, currentStep: resumeSignal.step });
+    save({ seen: false, currentStep: nextIndex });
   }, [resumeSignal]);
 
-  const currentStep = steps[step - 1];
-  const lastStep = step === steps.length;
+  const current = steps[stepIndex];
 
   useEffect(() => {
-    if (visible && currentStep) onHighlight?.(currentStep.target);
-    return () => onHighlight?.(null);
-  }, [visible, currentStep, onHighlight]);
+    if (!visible || !current) return undefined;
+    const targetId = current.id === 'ordens-pdf' ? 'ordens-aplicacao' : current.id;
+    const target = document.querySelector(`[data-tour="${targetId}"]`);
+    if (target) {
+      target.setAttribute('data-tour-active', 'true');
+      target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    }
+    onHighlight?.(current.id);
+    return () => {
+      target?.removeAttribute('data-tour-active');
+      onHighlight?.(null);
+    };
+  }, [visible, current, onHighlight]);
 
-  const finalizar = (skipped = false) => {
-    salvarProgresso({ seen: true, currentStep: step, skipped, completed: !skipped });
+  const finish = (skipped = false) => {
+    save({ seen: true, currentStep: stepIndex, completed: !skipped, skipped });
+    setVisible(false);
     onHighlight?.(null);
+  };
+
+  const goToModule = () => {
+    if (!current) return;
+    save({ seen: false, currentStep: stepIndex });
+    onPause?.(stepIndex);
+    onNavigate(current.id === 'ordens-pdf' ? 'ordens-aplicacao' : current.id);
     setVisible(false);
   };
 
-  const irParaAlvo = () => {
-    if (step === 2 || step === 3) {
-      salvarProgresso({ seen: true, currentStep: step, paused: true });
-      onPause?.(step);
-      onHighlight?.(null);
-      setVisible(false);
-      onNavigate(currentStep.target);
-      return;
-    }
-    onNavigate(currentStep.target);
-    finalizar();
+  const next = () => {
+    if (stepIndex >= steps.length - 1) return finish();
+    const nextIndex = stepIndex + 1;
+    setStepIndex(nextIndex);
+    save({ seen: false, currentStep: nextIndex });
   };
 
-  const avancar = () => {
-    if (lastStep) return finalizar();
-    const proximoPasso = step + 1;
-    setStep(proximoPasso);
-    setRetryMessage('');
-    salvarProgresso({ seen: true, currentStep: proximoPasso });
+  const previous = () => {
+    if (stepIndex === 0) return;
+    const previousIndex = stepIndex - 1;
+    setStepIndex(previousIndex);
+    save({ seen: false, currentStep: previousIndex });
   };
 
-  if (!visible || !currentStep) return null;
+  if (!visible || !current) return null;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden relative">
-        <div className="bg-emerald-800 px-6 py-5 flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3"><div className="w-11 h-11 rounded-xl bg-emerald-700 text-emerald-100 flex items-center justify-center"><Sprout className="w-6 h-6" aria-hidden="true" /></div><div><p className="text-emerald-200 text-xs font-semibold uppercase tracking-wide">Guia rápido</p><h2 id="onboarding-title" className="text-xl font-bold text-white">{currentStep.title}</h2></div></div>
-          <button type="button" onClick={() => finalizar(true)} className="p-1.5 rounded-lg text-emerald-100 hover:bg-emerald-700" title="Fechar tutorial" aria-label="Fechar tutorial"><X className="w-5 h-5" aria-hidden="true" /></button>
-        </div>
-        <div className="p-6">
-          <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-800 text-sm font-semibold"><ArrowDown className="w-5 h-5 animate-bounce shrink-0" aria-hidden="true" /><span>Alvo: {currentStep.targetLabel}</span></div>
-          {retryMessage && <p className="mb-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm font-medium text-amber-800">{retryMessage}</p>}
-          <p className="text-slate-700 leading-relaxed min-h-20">{currentStep.text}</p>
-          <div className="flex items-center gap-1.5 mt-6" aria-label={`Passo ${step} de ${steps.length}`}>{steps.map((item, index) => <span key={item.title} className={`h-1.5 flex-1 rounded-full ${index < step ? 'bg-emerald-700' : 'bg-slate-200'}`} />)}</div>
-          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mt-6"><button type="button" onClick={() => finalizar(true)} className="text-sm text-slate-500 hover:text-slate-700 underline underline-offset-2 text-left">Pular tutorial</button><div className="flex items-center justify-end gap-3"><span className="text-sm text-slate-500">Passo {step} de {steps.length}</span>{currentStep.action && <button type="button" onClick={irParaAlvo} className="inline-flex items-center gap-2 px-3 py-2 border border-emerald-700 text-emerald-800 rounded-lg hover:bg-emerald-50"><ExternalLink className="w-4 h-4" aria-hidden="true" />{currentStep.action}</button>}<button type="button" onClick={avancar} className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition">{lastStep ? <Check className="w-4 h-4" aria-hidden="true" /> : <ArrowRight className="w-4 h-4" aria-hidden="true" />}{lastStep ? 'Concluir' : 'Próximo'}</button></div></div>
+      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+        <header className="bg-emerald-800 px-5 sm:px-6 py-5 flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3"><div className="w-11 h-11 rounded-xl bg-emerald-700 text-emerald-100 flex items-center justify-center"><Sprout className="w-6 h-6" /></div><div><p className="text-emerald-200 text-xs font-semibold uppercase tracking-wide">Guia completo do sistema</p><h2 id="onboarding-title" className="text-xl font-bold text-white">{current.title}</h2></div></div>
+          <button type="button" onClick={() => finish(true)} className="p-2 rounded-lg text-emerald-100 hover:bg-emerald-700" aria-label="Fechar e pular tutorial"><X className="w-5 h-5" /></button>
+        </header>
+        <div className="p-5 sm:p-6">
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-800 text-sm font-semibold"><ArrowDown className="w-5 h-5 animate-bounce shrink-0" /><span>Veja o menu ou controle destacado em verde.</span></div>
+          <p className="text-slate-700 leading-relaxed min-h-28">{current.text}</p>
+          <div className="flex items-center gap-1.5 mt-5">{steps.map((item, index) => <span key={item.id} className={`h-1.5 flex-1 rounded-full ${index <= stepIndex ? 'bg-emerald-700' : 'bg-slate-200'}`} />)}</div>
+          <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between gap-3 mt-6"><button type="button" onClick={() => finish(true)} className="text-sm text-slate-500 hover:text-slate-700 underline underline-offset-2 text-left">Pular tutorial</button><div className="flex flex-wrap items-center justify-end gap-2"><span className="text-sm text-slate-500 mr-1">{stepIndex + 1} de {steps.length}</span><button type="button" onClick={previous} disabled={stepIndex === 0} className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-300 text-slate-700 rounded-lg disabled:opacity-40"><ArrowLeft className="w-4 h-4" />Voltar</button><button type="button" onClick={goToModule} className="inline-flex items-center gap-1.5 px-3 py-2 border border-emerald-700 text-emerald-800 rounded-lg hover:bg-emerald-50"><ExternalLink className="w-4 h-4" />{current.action}</button><button type="button" onClick={next} className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">{stepIndex === steps.length - 1 ? <Check className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}{stepIndex === steps.length - 1 ? 'Concluir' : 'Próximo'}</button></div></div>
         </div>
       </div>
     </div>

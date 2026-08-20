@@ -9,6 +9,14 @@ O Agro-BI é um SaaS de gestão agrícola composto por:
 
 O banco é PostgreSQL, usado pelo backend via SQLAlchemy e `pg8000`. O backend é preparado para deploy no Railway por Docker; o frontend é preparado para deploy no Vercel. A branch principal é `main`, com deploy automático.
 
+## Onboarding e base de conhecimento
+
+- O frontend possui um tour guiado detalhado, iniciado no primeiro login e persistido por usuário em `localStorage`.
+- O tour cobre Dashboard, Estoque, Safras, Ordens de Aplicação, PDF, Financeiro, RH, Usuários, Movimentações, Alertas e Ajuda.
+- Cada etapa oferece explicação operacional, navegação para o módulo, destaque visual, botões `Voltar`, `Próximo` e `Pular tutorial`.
+- O progresso é salvo com o índice da etapa atual e pode ser retomado; a tela Ajuda permite reiniciar o tour a qualquer momento.
+- Etapas administrativas são exibidas somente para usuários com papel `ADMIN`, respeitando o RBAC existente.
+
 ## Backend e segurança
 
 - Python 3.11; FastAPI 0.109; Uvicorn; SQLAlchemy 2; Pydantic 2.

@@ -84,6 +84,7 @@ export default function Sidebar({
             return (
               <button
                 key={item.id}
+                data-tour={item.id}
                 onClick={() => handleNavigate(item.id)}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition ${
                   isActive

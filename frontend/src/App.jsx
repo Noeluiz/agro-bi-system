@@ -53,17 +53,17 @@ function Sistema({ role, userName, userEmail, onLogout }) {
     const handleBrowserBack = () => {
       if (onboardingPaused) {
         setOnboardingPaused(false);
-        setOnboardingResume({ step: 2, message: 'Você ainda não criou um produto. Vamos tentar de novo.' });
+        setOnboardingResume({ step: onboardingPausedStep ?? 0, message: 'Você saiu desta etapa. Vamos continuar de onde paramos.' });
       }
     };
     window.addEventListener('popstate', handleBrowserBack);
     return () => window.removeEventListener('popstate', handleBrowserBack);
-  }, [onboardingPaused]);
+  }, [onboardingPaused, onboardingPausedStep]);
 
   const handleNavigate = (section) => {
-    if (onboardingPaused && section !== 'estoque') {
+    if (onboardingPaused) {
       setOnboardingPaused(false);
-      setOnboardingResume({ step: 2, message: 'Você ainda não criou um produto. Vamos tentar de novo.' });
+      setOnboardingResume({ step: onboardingPausedStep ?? 0, message: 'Você saiu desta etapa. Vamos continuar de onde paramos.' });
     }
     setActiveSection(section);
     setSafraId(null);
@@ -74,14 +74,14 @@ function Sistema({ role, userName, userEmail, onLogout }) {
   const handleProductCreated = () => {
     if (!onboardingPaused) return;
     setOnboardingPaused(false);
-    setOnboardingResume({ step: 3, message: '' });
+    setOnboardingResume({ step: 2, message: '' });
   };
 
   const handleSafraCreated = () => {
-    if (!onboardingPaused || onboardingPausedStep !== 3) return;
+    if (!onboardingPaused || onboardingPausedStep !== 2) return;
     setOnboardingPaused(false);
     setOnboardingPausedStep(null);
-    setOnboardingResume({ step: 5, message: '' });
+    setOnboardingResume({ step: 3, message: '' });
   };
 
   const handleReplayOnboarding = () => {
@@ -157,7 +157,7 @@ function Sistema({ role, userName, userEmail, onLogout }) {
       />
 
       <main className="min-w-0 flex-1 overflow-auto">
-        <OnboardingTour userEmail={userEmail} onNavigate={handleNavigate} onHighlight={setOnboardingTarget} onPause={(step) => { setOnboardingPaused(true); setOnboardingPausedStep(step); }} resumeSignal={onboardingResume} />
+        <OnboardingTour role={role} userEmail={userEmail} onNavigate={handleNavigate} onHighlight={setOnboardingTarget} onPause={(step) => { setOnboardingPaused(true); setOnboardingPausedStep(step); }} resumeSignal={onboardingResume} />
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg m-4">
             <div className="flex items-center">

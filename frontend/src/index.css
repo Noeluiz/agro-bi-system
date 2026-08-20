@@ -29,6 +29,18 @@ body {
   }
 }
 
+[data-tour-active="true"] {
+  position: relative;
+  z-index: 61;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.35), 0 0 22px rgba(16, 185, 129, 0.55);
+  animation: tour-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes tour-pulse {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
