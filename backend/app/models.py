@@ -216,10 +216,12 @@ class AlertaEstoque(Base):
     __tablename__ = "alertas_estoque"
     
     id = Column(Integer, primary_key=True, index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)  # IDOR: track creator
     produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=False)
     mensagem = Column(Text, nullable=False)
     tipo_alerta = Column(String(50), nullable=True)
     resolvido = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     
+    usuario = relationship("Usuario")
     produto = relationship("Produto", back_populates="alertas")

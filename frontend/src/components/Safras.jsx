@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AlertCircle, Plus, ChevronRight, Loader, Trash2 } from 'lucide-react';
+import { AlertCircle, Plus, Loader, Trash2 } from 'lucide-react';
 import { apiFetch } from '../auth';
 import { formatarMoeda } from '../utils/formatters';
 
@@ -243,7 +243,6 @@ export default function Safras({ onSelectSafra, role, onSafraCreated }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <ChevronRight className="w-5 h-5 text-slate-400" />
                   {role === 'ADMIN' && <button type="button" onClick={() => handleDeletarSafra(safra)} className="p-2 rounded-lg text-red-600 hover:bg-red-50" title="Excluir safra"><Trash2 className="w-4 h-4" /></button>}
                 </div>
               </div>

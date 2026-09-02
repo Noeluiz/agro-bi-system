@@ -139,7 +139,9 @@ export default function Financeiro() {
   const formatarData = (dataStr) => {
     if (!dataStr) return '-';
     try {
-      const data = new Date(dataStr);
+      const data = /^\d{4}-\d{2}-\d{2}$/.test(dataStr)
+        ? new Date(`${dataStr}T00:00:00`)
+        : new Date(dataStr);
       return data.toLocaleDateString('pt-BR');
     } catch {
       return dataStr;

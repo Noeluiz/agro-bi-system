@@ -441,9 +441,9 @@ async def listar_categorias(
 async def criar_categoria(
     categoria: schemas.CategoriaBase,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(get_current_user)
+    _: Usuario = Depends(require_admin)
 ):
-    """Create a new category. (Acesso ADMIN e GERENTE)"""
+    """Create a new category. (Acesso ADMIN only)"""  
     try:
         db_categoria = Categoria(nome=categoria.nome)
         db.add(db_categoria)
@@ -476,9 +476,9 @@ async def listar_fornecedores(
 async def criar_fornecedor(
     fornecedor: schemas.FornecedorBase,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(get_current_user)
+    _: Usuario = Depends(require_admin)
 ):
-    """Create a new supplier. (Acesso ADMIN e GERENTE)"""
+    """Create a new supplier. (Acesso ADMIN only)"""  
     try:
         db_fornecedor = Fornecedor(**fornecedor.dict())
         db.add(db_fornecedor)
@@ -538,9 +538,9 @@ async def obter_produto(
 async def criar_produto(
     produto: schemas.ProdutoBase,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(require_admin)
 ):
-    """Create a new product. (Acesso ADMIN e GERENTE)"""
+    """Create a new product. (Acesso ADMIN only)"""  
     try:
         db_produto = Produto(**produto.dict())
         db.add(db_produto)
@@ -559,9 +559,9 @@ async def atualizar_produto(
     produto_id: int,
     produto_update: schemas.ProdutoUpdate,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(require_admin)
 ):
-    """Atualiza parcialmente os dados de um produto. (Acesso ADMIN e GERENTE)"""
+    """Atualiza parcialmente os dados de um produto. (Acesso ADMIN only)"""  
     try:
         db_produto = db.query(Produto).filter(Produto.id == produto_id).first()
         if not db_produto:
@@ -862,9 +862,9 @@ async def listar_safras(
 async def criar_safra(
     safra: schemas.SafraBase,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(get_current_user)
+    _: Usuario = Depends(require_admin)
 ):
-    """Create a new crop record. (Acesso ADMIN e GERENTE)"""
+    """Create a new crop record. (Acesso ADMIN only)"""  
     try:
         dados_safra = safra.model_dump()
         dados_safra["producao_total"] = (
@@ -912,9 +912,9 @@ async def deletar_safra(
 async def criar_aplicacao_insumo(
     aplicacao: schemas.AplicacaoInsumoCreate,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
+    current_user: Usuario = Depends(require_admin),
 ):
-    """Aplica um insumo à safra, baixando estoque e incorporando o custo de forma atômica."""
+    """Aplica um insumo à safra, baixando estoque e incorporando o custo de forma atômica. (ADMIN only)"""  
     try:
         safra = db.query(Safra).filter(Safra.id == aplicacao.safra_id).with_for_update().first()
         if not safra:
@@ -1013,9 +1013,9 @@ async def listar_movimentacoes_estoque(
 async def criar_ordem_aplicacao(
     ordem: schemas.OrdemAplicacaoCreate,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
+    current_user: Usuario = Depends(require_admin),
 ):
-    """Cria uma ordem, reserva os insumos e baixa o estoque de forma atômica."""
+    """Cria uma ordem, reserva os insumos e baixa o estoque de forma atômica. (ADMIN only)"""  
     try:
         produto_ids = [item.produto_id for item in ordem.itens]
         if len(produto_ids) != len(set(produto_ids)):
@@ -1314,11 +1314,13 @@ async def listar_alertas_estoque(
 async def criar_alerta_estoque(
     alerta: schemas.AlertaEstoqueBase,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user)
 ):
     """Create a new stock alert. (Acesso ADMIN e GERENTE)"""
     try:
-        db_alerta = AlertaEstoque(**alerta.dict())
+        dados_alerta = alerta.dict()
+        dados_alerta["usuario_id"] = current_user.id  # IDOR: associate alert with creator
+        db_alerta = AlertaEstoque(**dados_alerta)
         db.add(db_alerta)
         db.commit()
         db.refresh(db_alerta)
@@ -1333,13 +1335,17 @@ async def resolver_alerta_estoque(
     alerta_id: int,
     alerta_update: schemas.AlertaEstoqueUpdate,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user)
 ):
-    """Resolve a stock alert (mark as resolved). (Acesso ADMIN e GERENTE)"""
+    """Resolve a stock alert (mark as resolved). (IDOR protection added)"""  
     try:
         db_alerta = db.query(AlertaEstoque).filter(AlertaEstoque.id == alerta_id).first()
         if not db_alerta:
             raise HTTPException(status_code=404, detail="Alerta não encontrado")
+        
+        # SECURITY: IDOR check - only ADMIN or creator can modify
+        if current_user.role != "ADMIN" and db_alerta.usuario_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Sem permissão para modificar este alerta")
         
         # Atualizar campos fornecidos
         if alerta_update.resolvido is not None:
@@ -1359,13 +1365,17 @@ async def resolver_alerta_estoque(
 async def deletar_alerta_estoque(
     alerta_id: int,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user)
 ):
-    """Delete a stock alert. (Acesso ADMIN e GERENTE)"""
+    """Delete a stock alert. (IDOR protection added)"""  
     try:
         db_alerta = db.query(AlertaEstoque).filter(AlertaEstoque.id == alerta_id).first()
         if not db_alerta:
             raise HTTPException(status_code=404, detail="Alerta não encontrado")
+        
+        # SECURITY: IDOR check - only ADMIN or creator can delete
+        if current_user.role != "ADMIN" and db_alerta.usuario_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Sem permissão para deletar este alerta")
         
         db.delete(db_alerta)
         db.commit()

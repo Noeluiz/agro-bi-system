@@ -23,13 +23,17 @@ export default function Estoque({ role, onProductCreated }) {
   const [buscaProduto, setBuscaProduto] = useState('');
 
   const normalizarTexto = (texto) => String(texto || '')
+    .trim()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase('pt-BR');
 
-  const produtosVisiveis = produtos.filter((produto) =>
-    normalizarTexto(produto.nome).includes(normalizarTexto(buscaProduto))
-  );
+  const produtosVisiveis = produtos.filter((produto) => {
+    const correspondeBusca = normalizarTexto(produto.nome).includes(normalizarTexto(buscaProduto));
+    const correspondeCategoria = !filtroCategoria || Number(produto.categoria_id) === Number(filtroCategoria);
+    const correspondeFornecedor = !filtroFornecedor || Number(produto.fornecedor_id) === Number(filtroFornecedor);
+    return correspondeBusca && correspondeCategoria && correspondeFornecedor;
+  });
 
   useEffect(() => {
     carregarDados();

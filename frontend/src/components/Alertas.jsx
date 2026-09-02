@@ -89,14 +89,14 @@ export default function Alertas() {
   };
 
   const handleExportar = () => {
-    if (alertas.length === 0) {
+    if (alertasFiltrados.length === 0) {
       setError('Nenhum alerta para exportar');
       return;
     }
 
     try {
       const headers = ['Produto', 'Tipo', 'Mensagem', 'Status'];
-      const rows = alertas.map(a => [
+      const rows = alertasFiltrados.map(a => [
         a.produto?.nome || 'N/A',
         a.tipo_alerta || 'Geral',
         a.mensagem,

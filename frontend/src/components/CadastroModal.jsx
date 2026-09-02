@@ -91,7 +91,7 @@ export default function CadastroModal({
       if (tipo === 'produto') {
         setActiveTab('produto');
       }
-      setFormData(getDefaultValues(tipo === 'produto' ? activeTab : tipo));
+      setFormData(getDefaultValues(tipo === 'produto' ? 'produto' : tipo));
       setError('');
     }
   }, [isOpen, tipo]);
@@ -149,8 +149,8 @@ export default function CadastroModal({
         fornecedor_id: '',
         estoque_atual: 0,
         estoque_minimo: 0,
-        preco_custo: 0,
-        preco_venda: 0,
+        preco_custo: '',
+        preco_venda: '',
         unidade_medida: 'Unidade',
       },
       categoria: {
@@ -164,7 +164,7 @@ export default function CadastroModal({
       },
       fluxo: {
         tipo: 'Receita',
-        valor: 0,
+        valor: '',
         categoria_financeira: '',
         descricao: '',
         data: new Date().toISOString().split('T')[0],
@@ -173,7 +173,7 @@ export default function CadastroModal({
         nome: '',
         cpf: '',
         cargo: '',
-        salario_base: 0,
+        salario_base: '',
         data_admissao: new Date().toISOString().split('T')[0],
       },
       alerta: {
@@ -280,7 +280,7 @@ export default function CadastroModal({
     const { name, value, type } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'number' ? parseFloat(value) || 0 : value,
+      [name]: type === 'number' ? (value === '' ? '' : parseFloat(value)) : value,
     }));
     setError('');
   };
@@ -505,7 +505,7 @@ export default function CadastroModal({
                   <input
                     type="number"
                     name="preco_custo"
-                    value={formData.preco_custo || 0}
+                    value={formData.preco_custo}
                     onChange={handleChange}
                     step="0.01"
                     min="0"
@@ -520,7 +520,7 @@ export default function CadastroModal({
                   <input
                     type="number"
                     name="preco_venda"
-                    value={formData.preco_venda || 0}
+                    value={formData.preco_venda}
                     onChange={handleChange}
                     step="0.01"
                     min="0"
@@ -655,7 +655,7 @@ export default function CadastroModal({
                   <input
                     type="number"
                     name="valor"
-                    value={formData.valor || 0}
+                    value={formData.valor}
                     onChange={handleChange}
                     step="0.01"
                     min="0"
@@ -759,7 +759,7 @@ export default function CadastroModal({
                   <input
                     type="number"
                     name="salario_base"
-                    value={formData.salario_base || 0}
+                    value={formData.salario_base}
                     onChange={handleChange}
                     step="0.01"
                     min="0"

@@ -15,14 +15,14 @@ def limpar_texto(value: str) -> str:
 class UsuarioCreate(BaseModel):
     nome: str = Field(min_length=1, max_length=150)
     email: str = Field(min_length=3, max_length=150)
-    senha: str = Field(min_length=6, max_length=128)
+    senha: str = Field(min_length=12, max_length=128)
     role: str = Field(pattern="^(ADMIN|GERENTE|OPERADOR)$")
 
 
 class UsuarioUpdate(BaseModel):
     nome: Optional[str] = Field(default=None, min_length=1, max_length=150)
     email: Optional[str] = Field(default=None, min_length=3, max_length=150)
-    senha: Optional[str] = Field(default=None, min_length=6, max_length=128)
+    senha: Optional[str] = Field(default=None, min_length=12, max_length=128)
     role: Optional[str] = Field(default=None, pattern="^(ADMIN|GERENTE|OPERADOR)$")
     ativo: Optional[bool] = None
 
