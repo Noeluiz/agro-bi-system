@@ -76,7 +76,7 @@ São opcionais, mas usados em documentos PDF e relatórios da ordem de aplicaç�
 - `RAILWAY_ENVIRONMENT_NAME=production`
 - `RAILWAY_SERVICE_NAME=agro-bi-api`
 
-Essas são detectadas pela aplicação para desabilitar seeds e dados de demo em produção.
+Essas variáveis são fornecidas automaticamente pelo Railway e não são usadas pela aplicação para detectar produção. O seed é controlado exclusivamente por `ENVIRONMENT`: use `production` para bloqueá-lo e `development`, `test` ou vazio para permitir o seed.
 
 ## 9) Ordem recomendada do deploy
 

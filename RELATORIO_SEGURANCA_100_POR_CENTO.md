@@ -63,7 +63,7 @@ O percentual "100%" deste relatorio significa cobertura das correcoes previstas 
 
 ### 8. Producao e operacao
 
-- Seeds de usuarios padrao e dados demonstrativos sao ignorados em producao/Railway.
+- Seeds de usuarios padrao e dados demonstrativos sao ignorados somente quando `ENVIRONMENT=production`; variaveis automaticas do Railway nao alteram essa decisao.
 - A tela administrativa de Logs de Acesso permite consulta, filtro por e-mail e exportacao CSV.
 - O deploy tem checklist de variaveis, ordem de configuracao e verificacoes pos-publicacao.
 - Testes automatizados cobrem lockout, validacao numerica, CSRF e HTTP 429.
@@ -116,6 +116,7 @@ Configure no Railway, em **Settings > Variables**. Nunca publique os valores rea
 ### Runtime/Railway
 
 - `RAILWAY_ENVIRONMENT_NAME=production`
+- `RAILWAY_ENVIRONMENT_ID` (fornecida automaticamente pelo Railway; ignorada na deteccao de producao)
 - `RAILWAY_SERVICE_NAME=agro-bi-api`
 - `BACKEND_HOST=0.0.0.0`
 - `BACKEND_PORT=8000`
@@ -126,7 +127,7 @@ Configure no Railway, em **Settings > Variables**. Nunca publique os valores rea
 1. Crie ou selecione o projeto e provisione um PostgreSQL privado no Railway.
 2. Gere uma chave forte com `openssl rand -hex 32` e defina `SECRET_KEY`.
 3. Cadastre `DATABASE_URL` apontando para o banco Railway. Nao use senha de exemplo.
-4. Defina `ENVIRONMENT=production`, `RAILWAY_ENVIRONMENT_NAME=production` e `RAILWAY_SERVICE_NAME=agro-bi-api`.
+4. Defina `ENVIRONMENT=production`. As variaveis `RAILWAY_ENVIRONMENT_NAME`, `RAILWAY_ENVIRONMENT_ID` e `RAILWAY_SERVICE_NAME` podem permanecer com os valores automaticos do Railway; elas nao controlam a deteccao de producao.
 5. Configure `COOKIE_SECURE=true`, `COOKIE_SAMESITE=none`, `ENABLE_HSTS=true` e o `CORS_ORIGINS` HTTPS definitivo.
 6. Configure limites, logs e dados institucionais conforme a lista acima.
 7. Faca o deploy do backend e confirme nos logs que o banco inicializou sem executar seed de usuarios ou dados demo.

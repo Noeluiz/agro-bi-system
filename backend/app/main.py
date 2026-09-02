@@ -110,7 +110,7 @@ def _allow_per_user_rate_limit(bucket_key: str, max_requests: int, window_second
 # CORS restrito (sem wildcard com credentials)
 # ---------------------------------------------------------------------
 ENVIRONMENT = os.getenv("ENVIRONMENT", "").lower()
-IS_PRODUCTION = ENVIRONMENT == "production" or bool(os.getenv("RAILWAY_ENVIRONMENT_NAME")) or bool(os.getenv("RAILWAY_SERVICE_NAME"))
+IS_PRODUCTION = ENVIRONMENT == "production"
 PRODUCTION_ORIGIN = "https://agro-bi-system.vercel.app"
 origins_padrao = [
     "http://localhost:5173",
@@ -152,7 +152,7 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-    if os.getenv("ENABLE_HSTS", "false").lower() == "true" or os.getenv("ENVIRONMENT", "").lower() == "production" or os.getenv("RAILWAY_SERVICE_NAME"):
+    if os.getenv("ENABLE_HSTS", "false").lower() == "true" or os.getenv("ENVIRONMENT", "").lower() == "production":
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
@@ -164,9 +164,7 @@ async def startup():
     criar_categorias_iniciais()
     criar_usuarios_iniciais()
     ambiente = os.getenv("ENVIRONMENT", "").lower()
-    railway_environment = os.getenv("RAILWAY_ENVIRONMENT_NAME", "").lower()
-    railway_service = os.getenv("RAILWAY_SERVICE_NAME")
-    if ambiente != "production" and railway_environment != "production" and not railway_service:
+    if ambiente != "production":
         criar_dados_demonstracao()
     else:
         logger.info("Demo data disabled in production environment")
@@ -192,10 +190,8 @@ def criar_categorias_iniciais():
 def criar_usuarios_iniciais():
     """Cria os usuários iniciais de teste (admin e gerente) se não existirem."""
     ambiente = os.getenv("ENVIRONMENT", "").lower()
-    railway_environment = os.getenv("RAILWAY_ENVIRONMENT_NAME", "").lower()
-    railway_service = os.getenv("RAILWAY_SERVICE_NAME")
 
-    if ambiente == "production" or railway_environment == "production" or railway_service:
+    if ambiente == "production":
         logger.info("Seed de usuários padrão ignorado em produção/Railway")
         return
 
