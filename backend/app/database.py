@@ -16,6 +16,18 @@ if not DATABASE_URL:
         "postgresql+pg8000://usuario:senha@host:5432/banco) antes de iniciar o servidor."
     )
 
+
+def _forcar_ssl_postgres(url: str) -> str:
+    """Exige SSL/TLS em conexões PostgreSQL para evitar interceptação em trânsito."""
+    if url.startswith(("postgresql://", "postgresql+psycopg2://", "postgresql+pg8000://", "postgresql+asyncpg://")):
+        if "sslmode=" not in url:
+            separator = "&" if "?" in url else "?"
+            return f"{url}{separator}sslmode=require"
+    return url
+
+
+DATABASE_URL = _forcar_ssl_postgres(DATABASE_URL)
+
 engine = create_engine(
     DATABASE_URL,
     poolclass=NullPool,

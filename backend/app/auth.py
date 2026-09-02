@@ -1,9 +1,10 @@
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import jwt
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
@@ -27,13 +28,25 @@ if not SECRET_KEY:
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 COOKIE_NAME = os.getenv("AUTH_COOKIE_NAME", "agro_bi_token")
+CSRF_COOKIE_NAME = os.getenv("CSRF_COOKIE_NAME", "agro_bi_csrf")
+CSRF_HEADER_NAME = os.getenv("CSRF_HEADER_NAME", "X-CSRF-Token")
 IS_PRODUCTION = (
     os.getenv("ENVIRONMENT", "").lower() == "production"
     or bool(os.getenv("RAILWAY_ENVIRONMENT_NAME"))
     or bool(os.getenv("RAILWAY_SERVICE_NAME"))
 )
 COOKIE_SECURE = True if IS_PRODUCTION else os.getenv("COOKIE_SECURE", "false").lower() == "true"
-COOKIE_SAMESITE = "none" if IS_PRODUCTION else os.getenv("COOKIE_SAMESITE", "strict")
+COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "none" if IS_PRODUCTION else "lax").lower()
+if COOKIE_SAMESITE not in {"lax", "strict", "none"}:
+    COOKIE_SAMESITE = "lax" if not IS_PRODUCTION else "none"
+if COOKIE_SAMESITE == "none":
+    COOKIE_SECURE = True
+REVOKED_TOKENS = set()
+
+if len(SECRET_KEY.encode("utf-8")) < 32:
+    raise RuntimeError(
+        "SECRET_KEY muito curta. Use pelo menos 32 bytes (ex.: `openssl rand -hex 32`)."
+    )
 
 # Contexto de hash de senha usando bcrypt via passlib
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -70,6 +83,7 @@ def verificar_senha(senha_plano: str, senha_hash: str) -> bool:
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """Cria um JWT assinado cobrindo e-mail e role."""
     to_encode = data.copy()
+    to_encode["jti"] = secrets.token_urlsafe(32)
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
@@ -79,10 +93,58 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 
+def revoke_token(token: str) -> bool:
+    """Adiciona um token à blacklist para invalidá-lo imediatamente."""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM], options={"verify_exp": False})
+    except jwt.PyJWTError:
+        return False
+
+    jti = payload.get("jti")
+    if not jti:
+        return False
+
+    REVOKED_TOKENS.add(jti)
+    return True
+
+
 def decode_access_token(token: str) -> dict:
-    """Decodifica e valida o JWT. Levanta exceção se inválido/expirado."""
+    """Decodifica e valida o JWT. Levanta exceção se inválido/expirado ou revogado."""
     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    if payload.get("jti") in REVOKED_TOKENS:
+        raise jwt.InvalidTokenError("Token revogado")
     return payload
+
+
+def generate_csrf_token() -> str:
+    """Gera um token CSRF para proteger login/logout."""
+    return secrets.token_urlsafe(32)
+
+
+def validate_csrf_token(request: Request) -> None:
+    """Exige a presença de um token CSRF válido para ações sensíveis."""
+    sent = request.headers.get(CSRF_HEADER_NAME, "")
+    cookie_value = request.cookies.get(CSRF_COOKIE_NAME, "")
+    if not sent or not cookie_value or sent != cookie_value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Token CSRF inválido ou ausente.",
+        )
+
+
+def set_csrf_cookie(response: Response, token: Optional[str] = None) -> str:
+    """Define o cookie CSRF no cliente e retorna o valor usado."""
+    csrf_token = token or generate_csrf_token()
+    response.set_cookie(
+        key=CSRF_COOKIE_NAME,
+        value=csrf_token,
+        httponly=False,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        max_age=60 * 30,
+        path="/",
+    )
+    return csrf_token
 
 
 def _extrair_token(request: Request) -> Optional[str]:

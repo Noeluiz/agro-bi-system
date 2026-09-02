@@ -43,19 +43,43 @@ export function clearSession() {
   localStorage.removeItem(ROLE_KEY);
   localStorage.removeItem(USER_NAME_KEY);
   localStorage.removeItem(USER_EMAIL_KEY);
+  localStorage.removeItem('agro_bi_csrf');
+}
+
+export async function fetchCsrfToken() {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const response = await fetch(`${API_URL}/api/auth/csrf`, {
+    method: 'GET',
+    credentials: 'include',
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || 'Falha ao gerar token CSRF');
+  }
+
+  const token = data.csrfToken || '';
+  if (token) {
+    localStorage.setItem('agro_bi_csrf', token);
+  }
+  return token;
 }
 
 export async function logout() {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const csrfToken = localStorage.getItem('agro_bi_csrf') || await fetchCsrfToken();
+
   clearSession();
-  // Notifica o backend para limpar o cookie HttpOnly.
   try {
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     await fetch(`${API_URL}/api/auth/logout`, {
       method: 'POST',
       credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken,
+      },
     });
   } catch (e) {
-    // Ignora erros de rede no logout — a sessão local já foi limpa.
     console.warn('Falha ao notificar logout no servidor:', e);
   }
 }

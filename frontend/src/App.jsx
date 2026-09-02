@@ -17,6 +17,7 @@ import OrdensAplicacao from './components/OrdensAplicacao';
 import NovaOrdemAplicacao from './components/NovaOrdemAplicacao';
 import Movimentacoes from './components/Movimentacoes';
 import Usuarios from './components/Usuarios';
+import LogsAcesso from './components/LogsAcesso';
 import { getRole, getUserEmail, getUserName, isAuthenticated, logout } from './auth';
 import OnboardingTour from './components/OnboardingTour';
 import Ajuda from './components/Ajuda';
@@ -123,6 +124,8 @@ function Sistema({ role, userName, userEmail, onLogout }) {
         return <Ajuda onReplayOnboarding={handleReplayOnboarding} />;
       case 'usuarios':
         return role === 'ADMIN' ? <Usuarios /> : <AcessoNegado />;
+      case 'logs-acesso':
+        return role === 'ADMIN' ? <LogsAcesso /> : <AcessoNegado />;
       case 'financeiro':
         return role === 'ADMIN' ? <Financeiro /> : <AcessoNegado />;
       case 'rh':

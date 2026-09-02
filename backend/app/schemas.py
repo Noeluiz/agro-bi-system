@@ -1,3 +1,4 @@
+import math
 from pydantic import BaseModel, Field
 from datetime import date, datetime
 from decimal import Decimal
@@ -9,6 +10,25 @@ import bleach
 
 def limpar_texto(value: str) -> str:
     return bleach.clean(value.strip(), tags=[], attributes={}, strip=True)
+
+
+def validar_decimal_finitos(value: Decimal, *, permitir_zero: bool = False, positivo: bool = False):
+    """Reject NaN/Infinity and enforce non-negative or positive monetary/quantity values."""
+    if value is None:
+        return value
+    try:
+        numero = float(value)
+    except (TypeError, ValueError):
+        raise ValueError("Valor decimal inválido")
+    if math.isnan(numero) or math.isinf(numero):
+        raise ValueError("Valor numérico inválido (NaN/Infinity não é permitido)")
+    if positivo and numero <= 0:
+        raise ValueError("O valor deve ser maior que zero")
+    if not permitir_zero and numero < 0:
+        raise ValueError("O valor não pode ser negativo")
+    if permitir_zero and numero < 0:
+        raise ValueError("O valor não pode ser negativo")
+    return value
 
 # ============= AUTH SCHEMAS =============
 
@@ -49,6 +69,22 @@ class TokenData(BaseModel):
     email: Optional[str] = None
     role: Optional[str] = None
 
+
+class LogAcessoBase(BaseModel):
+    email_usuario: str
+    acao: str
+    ip_origem: str
+    user_agent: Optional[str] = None
+    detalhes: Optional[str] = None
+    data_hora: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class LogAcessoResponse(LogAcessoBase):
+    id: int
+
 # ============= CATEGORIA SCHEMAS =============
 
 class CategoriaBase(BaseModel):
@@ -87,7 +123,7 @@ class FornecedorResponse(FornecedorBase):
 
 # Produto Schemas
 class ProdutoBase(BaseModel):
-    nome: str = Field(min_length=1, max_length=150)
+    nome: str = Field(min_length=1, max_length=200)
     categoria_id: int
     fornecedor_id: int
     estoque_atual: Decimal
@@ -101,6 +137,11 @@ class ProdutoBase(BaseModel):
     def sanitizar_texto(cls, value):
         return limpar_texto(value)
 
+    @field_validator("estoque_atual", "estoque_minimo", "preco_custo", "preco_venda")
+    @classmethod
+    def validar_decimais(cls, value):
+        return validar_decimal_finitos(value, permitir_zero=False, positivo=False)
+
 class ProdutoResponse(ProdutoBase):
     id: int
     created_at: datetime
@@ -113,7 +154,7 @@ class ProdutoResponse(ProdutoBase):
 
 class ProdutoUpdate(BaseModel):
     """Campos que podem ser alterados parcialmente em um produto."""
-    nome: Optional[str] = Field(default=None, min_length=1, max_length=150)
+    nome: Optional[str] = Field(default=None, min_length=1, max_length=200)
     categoria_id: Optional[int] = None
     fornecedor_id: Optional[int] = None
     estoque_atual: Optional[Decimal] = None
@@ -126,6 +167,13 @@ class ProdutoUpdate(BaseModel):
     @classmethod
     def sanitizar_texto(cls, value):
         return limpar_texto(value) if value is not None else value
+
+    @field_validator("estoque_atual", "estoque_minimo", "preco_custo", "preco_venda")
+    @classmethod
+    def validar_decimais(cls, value):
+        if value is None:
+            return value
+        return validar_decimal_finitos(value, permitir_zero=False, positivo=False)
 
 
 class ProdutoComAlertaResponse(ProdutoResponse):
@@ -193,9 +241,14 @@ class ItemCompraBase(BaseModel):
     quantidade: Decimal = Field(gt=0)
     preco_unitario: Decimal = Field(ge=0)
 
+    @field_validator("quantidade", "preco_unitario")
+    @classmethod
+    def validar_decimais(cls, value):
+        return validar_decimal_finitos(value, permitir_zero=True, positivo=True)
+
 class CompraCreate(BaseModel):
     fornecedor_id: int
-    itens: List[ItemCompraBase] = Field(min_length=1)
+    itens: List[ItemCompraBase] = Field(min_length=1, max_length=50)
 
 class ItemCompraResponse(ItemCompraBase):
     id: int
@@ -220,6 +273,11 @@ class AplicacaoInsumoCreate(BaseModel):
     produto_id: int
     quantidade_usada: Decimal = Field(gt=0)
     data_aplicacao: Optional[date] = None
+
+    @field_validator("quantidade_usada")
+    @classmethod
+    def validar_quantidade(cls, value):
+        return validar_decimal_finitos(value, permitir_zero=False, positivo=True)
 
 class AplicacaoInsumoResponse(BaseModel):
     id: int
@@ -246,6 +304,13 @@ class ItemOrdemAplicacaoCreate(BaseModel):
     produto_id: int
     dose_ha: Decimal = Field(gt=0)
     quantidade_total: Optional[Decimal] = Field(default=None, gt=0)
+
+    @field_validator("dose_ha", "quantidade_total")
+    @classmethod
+    def validar_decimais(cls, value):
+        if value is None:
+            return value
+        return validar_decimal_finitos(value, permitir_zero=False, positivo=True)
 
 
 class OrdemAplicacaoCreate(BaseModel):
@@ -332,9 +397,16 @@ class SafraResponse(SafraBase):
 # AlertaEstoque Schemas
 class AlertaEstoqueBase(BaseModel):
     produto_id: int
-    mensagem: str
-    tipo_alerta: Optional[str] = None
+    mensagem: str = Field(max_length=500)
+    tipo_alerta: Optional[str] = Field(default=None, max_length=50)
     resolvido: bool = False
+
+    @field_validator("mensagem", "tipo_alerta")
+    @classmethod
+    def sanitizar_texto_alerta(cls, value):
+        if value is None:
+            return value
+        return limpar_texto(value)
 
 class AlertaEstoqueResponse(AlertaEstoqueBase):
     id: int

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Lock, Mail, LogIn, Sprout, Eye, EyeOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { saveSession } from '../auth';
+import { fetchCsrfToken, saveSession } from '../auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -18,6 +18,8 @@ export default function Login({ onLogin }) {
     setErro(null);
 
     try {
+      const csrfToken = await fetchCsrfToken();
+
       // O backend usa OAuth2PasswordRequestForm, que espera form-urlencoded
       const body = new URLSearchParams();
       body.append('username', email);
@@ -25,7 +27,10 @@ export default function Login({ onLogin }) {
 
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRF-Token': csrfToken,
+        },
         body: body.toString(),
         credentials: 'include', // aceita/define o cookie HttpOnly
       });

@@ -35,6 +35,19 @@ class Log(Base):
 
     usuario = relationship("Usuario")
 
+
+class LogAcesso(Base):
+    __tablename__ = "logs_acesso"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email_usuario = Column(String(150), nullable=False, index=True)
+    acao = Column(String(50), nullable=False, index=True)
+    ip_origem = Column(String(45), nullable=False, index=True)
+    user_agent = Column(String(255), nullable=True)
+    detalhes = Column(Text, nullable=True)
+    data_hora = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
 class Categoria(Base):
     __tablename__ = "categorias"
     

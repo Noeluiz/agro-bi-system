@@ -21,19 +21,30 @@ from app.database import get_db, init_db
 from app.models import (
     Categoria, Fornecedor, Produto, Funcionario, FolhaPagamento,
     FluxoCaixa, Safra, AlertaEstoque, Usuario, Compra, ItemCompra, AplicacaoInsumo,
-    OrdemAplicacao, ItemOrdemAplicacao
+    OrdemAplicacao, ItemOrdemAplicacao, LogAcesso
 )
 from app.auth import (
-    hash_senha, verificar_senha, create_access_token,
-    get_current_user, require_admin, COOKIE_NAME, COOKIE_SECURE, COOKIE_SAMESITE
+    hash_senha, verificar_senha, create_access_token, decode_access_token,
+    get_current_user, require_admin, COOKIE_NAME, COOKIE_SECURE, COOKIE_SAMESITE,
+    CSRF_COOKIE_NAME, CSRF_HEADER_NAME, validate_csrf_token, set_csrf_cookie,
+    revoke_token
 )
-from app.audit import registrar_log
+from app.audit import registrar_log, registrar_log_acesso, limpar_logs_antigos_90_dias
 from app import schemas
 from app.utils.calculadora_tanques import calcular_tanques
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+os.makedirs("logs", exist_ok=True)
+abuse_handler = logging.FileHandler("logs/abuse.log", encoding="utf-8")
+abuse_handler.setLevel(logging.WARNING)
+abuse_handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(message)s"))
+abuse_logger = logging.getLogger("abuse")
+abuse_logger.setLevel(logging.WARNING)
+abuse_logger.handlers.clear()
+abuse_logger.addHandler(abuse_handler)
+abuse_logger.propagate = False
 
 CATEGORIAS_AGRICOLAS_PADRAO = (
     "Adubos",
@@ -59,29 +70,66 @@ def root():
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 
+PDF_LIMIT_PER_MINUTE = int(os.getenv("PDF_LIMIT_PER_MINUTE", "5"))
+MAX_ITENS_COMPRA = int(os.getenv("MAX_ITENS_COMPRA", "50"))
+MAX_ALERTAS_POR_DIA = int(os.getenv("MAX_ALERTAS_POR_DIA", "20"))
+PDF_REQUESTS_BY_USER = {}
+
 
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    client_ip = request.headers.get("X-Forwarded-For", request.client.host if request.client else "unknown")
+    path = request.url.path
+    method = request.method
+    user_agent = request.headers.get("User-Agent", "unknown")
+    abuse_logger.warning(
+        "Rate limit exceeded | ip=%s | method=%s | path=%s | user_agent=%s",
+        client_ip,
+        method,
+        path,
+        user_agent,
+    )
     return JSONResponse(
         status_code=429,
         content={"detail": "Muitas requisições. Tente novamente mais tarde."},
     )
 
 
+def _allow_per_user_rate_limit(bucket_key: str, max_requests: int, window_seconds: int = 60) -> bool:
+    """Permite controlar taxa por usuário em memória (sem depender de Redis)."""
+    agora = datetime.utcnow()
+    bucket = PDF_REQUESTS_BY_USER.setdefault(bucket_key, [])
+    bucket[:] = [ts for ts in bucket if (agora - ts).total_seconds() < window_seconds]
+    if len(bucket) >= max_requests:
+        return False
+    bucket.append(agora)
+    return True
+
+
 # ---------------------------------------------------------------------
 # CORS restrito (sem wildcard com credentials)
 # ---------------------------------------------------------------------
+ENVIRONMENT = os.getenv("ENVIRONMENT", "").lower()
+IS_PRODUCTION = ENVIRONMENT == "production" or bool(os.getenv("RAILWAY_ENVIRONMENT_NAME")) or bool(os.getenv("RAILWAY_SERVICE_NAME"))
+PRODUCTION_ORIGIN = "https://agro-bi-system.vercel.app"
 origins_padrao = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "https://agro-bi-system-production.up.railway.app",
     "https://agro-bi-system.vercel.app",
     "https://agro-bi-system-r30kftf2v-nlp-gdevs.vercel.app",
-    "https://agro-bi-system-jy9cjtz6v-nlp-gdevs.vercel.app"
+    "https://agro-bi-system-jy9cjtz6v-nlp-gdevs.vercel.app",
 ]
-origins_configuradas = [origem.strip() for origem in os.getenv("CORS_ORIGINS", "").split(",") if origem.strip()]
-# Mantém os domínios oficiais mesmo quando o ambiente fornece apenas origens locais.
-origins = list(dict.fromkeys(origins_padrao + origins_configuradas))
+origins_configuradas = [
+    origem.strip().rstrip("/") for origem in os.getenv("CORS_ORIGINS", "").split(",") if origem.strip()
+]
+if IS_PRODUCTION:
+    origins = [PRODUCTION_ORIGIN]
+    for origem in origins_configuradas:
+        if origem and origem.startswith("https://") and origem not in origins:
+            origins.append(origem)
+else:
+    origins = list(dict.fromkeys(origins_padrao + origins_configuradas))
 if "*" in origins:
     raise RuntimeError("CORS_ORIGINS não pode conter wildcard (*)")
 
@@ -90,7 +138,7 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"],
 )
 
 
@@ -115,7 +163,13 @@ async def startup():
     init_db()
     criar_categorias_iniciais()
     criar_usuarios_iniciais()
-    criar_dados_demonstracao()
+    ambiente = os.getenv("ENVIRONMENT", "").lower()
+    railway_environment = os.getenv("RAILWAY_ENVIRONMENT_NAME", "").lower()
+    railway_service = os.getenv("RAILWAY_SERVICE_NAME")
+    if ambiente != "production" and railway_environment != "production" and not railway_service:
+        criar_dados_demonstracao()
+    else:
+        logger.info("Demo data disabled in production environment")
     logger.info("Database initialized")
 
 
@@ -137,8 +191,12 @@ def criar_categorias_iniciais():
 
 def criar_usuarios_iniciais():
     """Cria os usuários iniciais de teste (admin e gerente) se não existirem."""
-    if os.getenv("ENVIRONMENT", "development").lower() == "production":
-        logger.info("Seed de usuários padrão ignorado em produção")
+    ambiente = os.getenv("ENVIRONMENT", "").lower()
+    railway_environment = os.getenv("RAILWAY_ENVIRONMENT_NAME", "").lower()
+    railway_service = os.getenv("RAILWAY_SERVICE_NAME")
+
+    if ambiente == "production" or railway_environment == "production" or railway_service:
+        logger.info("Seed de usuários padrão ignorado em produção/Railway")
         return
 
     db = next(get_db())
@@ -271,6 +329,22 @@ async def health_check(request: Request):
 
 # ============= AUTENTICAÇÃO (JWT) =============
 
+@app.get("/api/logs-acesso", response_model=List[schemas.LogAcessoResponse])
+async def listar_logs_acesso(
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(require_admin),
+):
+    """Lista eventos de acesso para auditoria administrativa. (ADMIN only)"""
+    return db.query(LogAcesso).order_by(LogAcesso.data_hora.desc()).all()
+
+
+@app.get("/api/auth/csrf")
+def csrf_token(response: Response):
+    """Retorna um token CSRF e armazena um cookie para proteger login/logout."""
+    token = set_csrf_cookie(response)
+    return {"csrfToken": token}
+
+
 @app.post("/api/auth/login")
 @limiter.limit("5/minute")
 async def login(request: Request, response: Response, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
@@ -279,10 +353,14 @@ async def login(request: Request, response: Response, form_data: OAuth2PasswordR
     Aceita 'application/x-www-form-urlencoded' (padrão OAuth2).
     Define um cookie HttpOnly; em produção ele usa Secure e SameSite=None para o frontend Vercel.
     """
+    validate_csrf_token(request)
     email = form_data.username.strip().lower()
+    ip_origem = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("User-Agent", "unknown")
     user = db.query(Usuario).filter(Usuario.email == email).with_for_update().first()
     agora = datetime.utcnow()
     if user and user.bloqueado_ate and user.bloqueado_ate > agora:
+        registrar_log_acesso(email, "tentativa_falha", ip_origem, "conta_bloqueada", user_agent)
         raise HTTPException(status_code=429, detail="Conta temporariamente bloqueada. Tente novamente em 15 minutos.")
 
     senha_valida = user is not None and user.ativo and verificar_senha(form_data.password, user.senha_hash)
@@ -292,8 +370,10 @@ async def login(request: Request, response: Response, form_data: OAuth2PasswordR
             if user.falhas_login >= 5:
                 user.bloqueado_ate = agora + timedelta(minutes=15)
                 db.commit()
+                registrar_log_acesso(email, "tentativa_falha", ip_origem, "conta_bloqueada_apos_tentativas", user_agent)
                 raise HTTPException(status_code=429, detail="Conta temporariamente bloqueada após tentativas inválidas.")
             db.commit()
+        registrar_log_acesso(email, "tentativa_falha", ip_origem, "credenciais_invalidas", user_agent)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="E-mail ou senha incorretos",
@@ -306,6 +386,7 @@ async def login(request: Request, response: Response, form_data: OAuth2PasswordR
     access_token = create_access_token(
         data={"sub": user.email, "role": user.role, "nome": user.nome}
     )
+    registrar_log_acesso(user.email, "login", ip_origem, "login_sucesso", user_agent)
 
     # Define o cookie HttpOnly (o token não fica acessível via JS)
     response.set_cookie(
@@ -317,18 +398,33 @@ async def login(request: Request, response: Response, form_data: OAuth2PasswordR
         max_age=60 * 60 * 8,  # 8 horas
         path="/",
     )
+    csrf_token = set_csrf_cookie(response)
     logger.info(f"Login realizado com sucesso por: {user.email}")
     return {
         "role": user.role,
         "nome": user.nome,
         "email": user.email,
+        "csrfToken": csrf_token,
     }
 
 
 @app.post("/api/auth/logout")
-def logout(response: Response):
-    """Limpa o cookie de autenticação (logout)."""
-    response.delete_cookie(key=COOKIE_NAME, path="/")
+def logout(request: Request, response: Response):
+    """Revoga o token atual e limpa os cookies de sessão e CSRF."""
+    validate_csrf_token(request)
+    token = request.cookies.get(COOKIE_NAME)
+    ip_origem = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("User-Agent", "unknown")
+    email_usuario = "unknown"
+    if token:
+        try:
+            email_usuario = decode_access_token(token).get("sub", "unknown")
+        except Exception:
+            email_usuario = "unknown"
+        revoke_token(token)
+    registrar_log_acesso(email_usuario, "logout", ip_origem, "logout_sucesso", user_agent)
+    response.delete_cookie(key=COOKIE_NAME, path="/", secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE)
+    response.delete_cookie(key=CSRF_COOKIE_NAME, path="/", secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE)
     return {"detail": "Logout realizado com sucesso."}
 
 
@@ -438,7 +534,9 @@ async def listar_categorias(
         return []
 
 @app.post("/api/categorias", response_model=schemas.CategoriaResponse)
+@limiter.limit("20/minute")
 async def criar_categoria(
+    request: Request,
     categoria: schemas.CategoriaBase,
     db: Session = Depends(get_db),
     _: Usuario = Depends(require_admin)
@@ -535,7 +633,9 @@ async def obter_produto(
         raise HTTPException(status_code=500, detail="Erro ao obter produto")
 
 @app.post("/api/produtos", response_model=schemas.ProdutoResponse)
+@limiter.limit("20/minute")
 async def criar_produto(
+    request: Request,
     produto: schemas.ProdutoBase,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(require_admin)
@@ -580,15 +680,30 @@ async def atualizar_produto(
         ).first():
             raise HTTPException(status_code=404, detail="Fornecedor não encontrado")
 
+        antes = {
+            "nome": db_produto.nome,
+            "estoque_atual": str(db_produto.estoque_atual),
+            "estoque_minimo": str(db_produto.estoque_minimo),
+            "preco_custo": str(db_produto.preco_custo),
+            "preco_venda": str(db_produto.preco_venda),
+        }
+
         for campo, valor in dados_atualizacao.items():
             setattr(db_produto, campo, valor)
 
         db.commit()
         db.refresh(db_produto)
+        depois = {
+            "nome": db_produto.nome,
+            "estoque_atual": str(db_produto.estoque_atual),
+            "estoque_minimo": str(db_produto.estoque_minimo),
+            "preco_custo": str(db_produto.preco_custo),
+            "preco_venda": str(db_produto.preco_venda),
+        }
         registrar_log(
             current_user.id,
             "ATUALIZAR_PRODUTO",
-            f"Produto #{db_produto.id}: campos {', '.join(dados_atualizacao.keys())}",
+            f"Produto #{db_produto.id}: ANTES={antes}; DEPOIS={depois}; CAMPOS={', '.join(dados_atualizacao.keys())}",
         )
         return db_produto
     except HTTPException:
@@ -750,14 +865,24 @@ async def criar_fluxo_caixa(
 ):
     """Create a new cash flow record. (ADMIN only)"""
     try:
+        dados_antes = fluxo.model_dump()
         db_fluxo = FluxoCaixa(**fluxo.dict())
         db.add(db_fluxo)
         db.commit()
         db.refresh(db_fluxo)
+        dados_depois = {
+            "id": db_fluxo.id,
+            "tipo": db_fluxo.tipo,
+            "valor": str(db_fluxo.valor),
+            "categoria_financeira": db_fluxo.categoria_financeira,
+            "descricao": db_fluxo.descricao,
+            "data": str(db_fluxo.data),
+            "created_at": str(db_fluxo.created_at),
+        }
         registrar_log(
             current_user.id,
             "CRIAR_FLUXO_CAIXA",
-            f"Lançamento #{db_fluxo.id}: {db_fluxo.tipo} - {db_fluxo.categoria_financeira}",
+            f"ANTES={dados_antes}; DEPOIS={dados_depois}",
         )
         return db_fluxo
     except Exception as e:
@@ -776,9 +901,22 @@ async def deletar_fluxo_caixa(
     if not fluxo:
         raise HTTPException(status_code=404, detail="Lançamento não encontrado")
     try:
+        dados_antes = {
+            "id": fluxo.id,
+            "tipo": fluxo.tipo,
+            "valor": str(fluxo.valor),
+            "categoria_financeira": fluxo.categoria_financeira,
+            "descricao": fluxo.descricao,
+            "data": str(fluxo.data),
+            "created_at": str(fluxo.created_at),
+        }
         db.delete(fluxo)
         db.commit()
-        registrar_log(current_user.id, "DELETAR_FLUXO_CAIXA", f"Lançamento #{fluxo_id}")
+        registrar_log(
+            current_user.id,
+            "DELETAR_FLUXO_CAIXA",
+            f"ANTES={dados_antes}; DEPOIS=registro_excluido",
+        )
     except Exception as e:
         db.rollback()
         logger.error(f"Erro ao deletar fluxo de caixa: {e}")
@@ -788,13 +926,18 @@ async def deletar_fluxo_caixa(
 
 # ============= COMPRAS (Financeiro/Estoque - somente ADMIN) =============
 @app.post("/api/compras", response_model=schemas.CompraResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
 async def criar_compra(
+    request: Request,
     compra: schemas.CompraCreate,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(require_admin),
 ):
     """Registra uma compra e incorpora todos os itens ao estoque de forma atômica."""
     try:
+        if len(compra.itens) > MAX_ITENS_COMPRA:
+            raise HTTPException(status_code=422, detail=f"Compra excedeu o limite máximo de {MAX_ITENS_COMPRA} itens por pedido")
+
         fornecedor = db.query(Fornecedor).filter(Fornecedor.id == compra.fornecedor_id).first()
         if not fornecedor:
             raise HTTPException(status_code=404, detail="Fornecedor não encontrado")
@@ -859,7 +1002,9 @@ async def listar_safras(
         return []
 
 @app.post("/api/safras", response_model=schemas.SafraResponse)
+@limiter.limit("20/minute")
 async def criar_safra(
+    request: Request,
     safra: schemas.SafraBase,
     db: Session = Depends(get_db),
     _: Usuario = Depends(require_admin)
@@ -1010,7 +1155,9 @@ async def listar_movimentacoes_estoque(
 
 
 @app.post("/api/ordens-aplicacao", response_model=schemas.OrdemAplicacaoResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("20/minute")
 async def criar_ordem_aplicacao(
+    request: Request,
     ordem: schemas.OrdemAplicacaoCreate,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(require_admin),
@@ -1101,9 +1248,12 @@ async def deletar_ordem_aplicacao(
 async def gerar_pdf_ordem_aplicacao(
     ordem_id: int,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_user),
 ):
     """Gera a ordem de aplicação em PDF para impressão ou download."""
+    if not _allow_per_user_rate_limit(f"pdf:{current_user.id}", PDF_LIMIT_PER_MINUTE, 60):
+        raise HTTPException(status_code=429, detail=f"Limite a geração de PDFs a {PDF_LIMIT_PER_MINUTE} requisições por minuto.")
+
     ordem = db.query(OrdemAplicacao).filter(OrdemAplicacao.id == ordem_id).first()
     if not ordem:
         raise HTTPException(status_code=404, detail="Ordem de aplicação não encontrada")
@@ -1318,6 +1468,19 @@ async def criar_alerta_estoque(
 ):
     """Create a new stock alert. (Acesso ADMIN e GERENTE)"""
     try:
+        inicio_dia = datetime.combine(date.today(), datetime.min.time())
+        alertas_no_dia = (
+            db.query(AlertaEstoque)
+            .filter(AlertaEstoque.usuario_id == current_user.id)
+            .filter(AlertaEstoque.created_at >= inicio_dia)
+            .count()
+        )
+        if alertas_no_dia >= MAX_ALERTAS_POR_DIA:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Você excedeu o limite de {MAX_ALERTAS_POR_DIA} alertas por dia.",
+            )
+
         dados_alerta = alerta.dict()
         dados_alerta["usuario_id"] = current_user.id  # IDOR: associate alert with creator
         db_alerta = AlertaEstoque(**dados_alerta)
@@ -1325,6 +1488,9 @@ async def criar_alerta_estoque(
         db.commit()
         db.refresh(db_alerta)
         return db_alerta
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         logger.error(f"Erro ao criar alerta de estoque: {e}")
         db.rollback()
